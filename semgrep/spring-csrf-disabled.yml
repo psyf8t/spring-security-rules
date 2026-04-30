@@ -1,0 +1,15 @@
+rules:
+  - id: spring-security-csrf-disable
+    languages: [java]
+    severity: WARNING
+    message: >-
+      CSRF disabled. Acceptable only for stateless REST with Authorization-header
+      tokens. For cookie-based sessions (incl. Spring Session) — broken.
+    metadata:
+      category: security
+      cwe: "CWE-352"
+      owasp: "A01:2021"
+    pattern-either:
+      - pattern: $H.csrf().disable()
+      - pattern: $H.csrf(c -> c.disable())
+      - pattern: $H.csrf(AbstractHttpConfigurer::disable)

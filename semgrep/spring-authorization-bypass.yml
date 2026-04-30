@@ -1,0 +1,139 @@
+rules:
+  # `.` doesn't match \n. Encoded CR/LF in the path bypasses the rule.
+  - id: spring-security-regex-matcher-without-dotall
+    languages: [java]
+    severity: ERROR
+    message: >-
+      RegexRequestMatcher pattern contains '.' but isn't DOTALL. Encoded
+      newlines bypass it (CVE-2022-22978 family). Prefix the pattern with (?s)
+      or use a path matcher.
+    metadata:
+      category: security
+      cwe: "CWE-863"
+      owasp: "A01:2021"
+      references:
+        - https://spring.io/security/cve-2022-22978/
+    patterns:
+      - pattern-either:
+          - pattern: new RegexRequestMatcher($P, ...)
+          - pattern: RegexRequestMatcher.regexMatcher($P)
+      - metavariable-regex:
+          metavariable: $P
+          regex: '"[^"]*\\.[^"]*"'
+      - pattern-not: |
+          new RegexRequestMatcher("(?s)...", ...)
+
+  - id: spring-security-csrf-disabled
+    languages: [java]
+    severity: WARNING
+    message: >-
+      CSRF disabled. Fine for stateless REST with Authorization-header tokens.
+      Catastrophic for cookie sessions.
+    metadata:
+      category: security
+      cwe: "CWE-352"
+      owasp: "A01:2021"
+    pattern-either:
+      - pattern: $H.csrf().disable()
+      - pattern: $H.csrf(csrf -> csrf.disable())
+      - pattern: $H.csrf(AbstractHttpConfigurer::disable)
+      - pattern: $H.csrf(Customizer.withDefaults().andThen(c -> c.disable()))
+
+  - id: spring-security-permitall-on-admin-actuator
+    languages: [java]
+    severity: ERROR
+    message: permitAll() on a path that looks like an admin or actuator endpoint.
+    metadata:
+      category: security
+      cwe: "CWE-284"
+    pattern-either:
+      - pattern: $A.requestMatchers("=~/.*\\b(admin|actuator|management|internal)\\b.*/").permitAll()
+      - pattern: $A.antMatchers("=~/.*\\b(admin|actuator|management|internal)\\b.*/").permitAll()
+      - pattern: $A.mvcMatchers("=~/.*\\b(admin|actuator|management|internal)\\b.*/").permitAll()
+      - pattern: $A.pathMatchers("=~/.*\\b(admin|actuator|management|internal)\\b.*/").permitAll()
+
+  # mvc/ant matchers normalise URLs differently — CVE-2023-20860.
+  - id: spring-security-mixed-mvc-ant-matchers
+    languages: [java]
+    severity: WARNING
+    message: >-
+      antMatchers and mvcMatchers mixed in one config. Different normalisation
+      rules — same shape as CVE-2023-20860. Pick one (mvc preferred).
+    metadata:
+      category: security
+      cwe: "CWE-863"
+      references:
+        - https://spring.io/security/cve-2023-20860/
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $A.antMatchers(...)...
+              ...
+              $A.mvcMatchers(...)...
+          - pattern: |
+              $A.mvcMatchers(...)...
+              ...
+              $A.antMatchers(...)...
+
+  # CVE-2025-41248 / 41249 — annotations on parameterised superclasses /
+  # interfaces are sometimes missed by the runtime. Re-annotate the impl.
+  - id: spring-security-annotation-on-interface
+    languages: [java]
+    severity: WARNING
+    message: >-
+      @PreAuthorize / @PostAuthorize / @Secured / @RolesAllowed on an interface
+      or abstract method may be missed at the implementation
+      (CVE-2025-41248 / 41249). Repeat the annotation on the concrete method.
+    metadata:
+      category: security
+      cwe: "CWE-863"
+      references:
+        - https://spring.io/security/cve-2025-41248/
+        - https://spring.io/security/cve-2025-41249/
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              interface $I { ... }
+          - pattern-inside: |
+              abstract class $I { ... }
+      - pattern-either:
+          - pattern: |
+              @PreAuthorize(...)
+              $RT $M(...);
+          - pattern: |
+              @PostAuthorize(...)
+              $RT $M(...);
+          - pattern: |
+              @Secured(...)
+              $RT $M(...);
+          - pattern: |
+              @RolesAllowed(...)
+              $RT $M(...);
+
+  # CVE-2024-38821: WebFlux + non-permitAll on static resources + un-normalised
+  # URL → bypass.
+  - id: spring-webflux-static-resource-not-permitall
+    languages: [java]
+    severity: WARNING
+    message: >-
+      WebFlux: static-resource paths protected by authenticated()/hasRole() are
+      bypassable via un-normalised URLs like //index.html (CVE-2024-38821).
+      Either permitAll() or upgrade Spring Security.
+    metadata:
+      category: security
+      cwe: "CWE-863"
+      references:
+        - https://spring.io/security/cve-2024-38821/
+    pattern-either:
+      - pattern: |
+          $A.pathMatchers(PathPatternParser.LITERAL, ...).authenticated()
+      - pattern: |
+          $A.pathMatchers("/static/**").authenticated()
+      - pattern: |
+          $A.pathMatchers("/static/**").hasRole(...)
+      - pattern: |
+          $A.pathMatchers("/static/**").hasAuthority(...)
+      - pattern: |
+          $A.pathMatchers("/resources/**").authenticated()
+      - pattern: |
+          $A.pathMatchers("/resources/**").hasRole(...)

@@ -1,0 +1,55 @@
+rules:
+  # CVE-2024-22243 family: UriComponentsBuilder parses userinfo unlike most
+  # other libs. URL passes your getHost() check, request goes elsewhere.
+  - id: spring-uricomponents-host-validation-pattern
+    languages: [java]
+    severity: WARNING
+    message: >-
+      UriComponentsBuilder.fromUriString(...) followed by getHost()/getAuthority()
+      validation is the CVE-2024-22243 shape. Either use java.net.URI (strict
+      JDK parser) or upgrade Spring to 6.1.4 / 6.0.17 / 5.3.32+.
+    metadata:
+      category: security
+      cwe: "CWE-918"
+      references:
+        - https://spring.io/security/cve-2024-22243/
+        - https://spring.io/security/cve-2024-22259/
+        - https://spring.io/security/cve-2024-22262/
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $URI = UriComponentsBuilder.fromUriString($U).build();
+              ...
+              $URI.getHost()
+          - pattern: |
+              $H = UriComponentsBuilder.fromUriString($U).build().getHost();
+              ...
+          - pattern: |
+              $URI = UriComponentsBuilder.fromHttpUrl($U).build();
+              ...
+              $URI.getHost()
+
+  - id: spring-uricomponents-from-tainted
+    languages: [java]
+    severity: WARNING
+    mode: taint
+    message: >-
+      URL fed to UriComponentsBuilder comes from user input. Don't rely on
+      getHost() afterwards (CVE-2024-22243).
+    metadata:
+      category: security
+      cwe: "CWE-918"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: UriComponentsBuilder.fromUriString($U)
+          - pattern: UriComponentsBuilder.fromHttpUrl($U)

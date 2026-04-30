@@ -1,0 +1,48 @@
+rules:
+  - id: spring-open-redirect-prefix-concat
+    languages: [java]
+    severity: ERROR
+    message: >-
+      "redirect:" + user input. Pass `//evil.com` and Spring 302s to it.
+      Compare against an allowlist or use only relative paths without scheme.
+    metadata:
+      category: security
+      cwe: "CWE-601"
+      owasp: "A01:2021"
+    pattern-either:
+      - pattern: return "redirect:" + $X;
+      - pattern: |
+          $S = "redirect:" + $X;
+          ...
+          return $S;
+
+  - id: spring-open-redirect-sendredirect-tainted
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: User-controlled URL passed to a redirect API.
+    metadata:
+      category: security
+      cwe: "CWE-601"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $RESP.sendRedirect($URL)
+          - pattern: new RedirectView($URL)
+          - pattern: new RedirectView($URL, ...)
+          - pattern: $H.setLocation($URI)
+          - pattern: $H.add("Location", $URL)
+          - pattern: $H.set("Location", $URL)
+          - pattern: |
+              ResponseEntity.status(...).header("Location", $URL).build()
+          - pattern: |
+              ResponseEntity.status(...).location($URI).build()

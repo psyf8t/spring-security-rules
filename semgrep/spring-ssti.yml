@@ -1,0 +1,55 @@
+rules:
+  - id: spring-mvc-view-name-from-user-input
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      View name returned to Spring MVC comes from user input. Attacker picks
+      any template the engine can resolve; if Thymeleaf/Freemarker is rendering
+      SpEL inline, that's RCE.
+    metadata:
+      category: security
+      cwe: "CWE-1336"
+      owasp: "A03:2021"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: |
+              return $X;
+          - pattern: new ModelAndView($X, ...)
+          - pattern: $MV.setViewName($X)
+
+  - id: spring-template-engine-tainted-template-string
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      First arg to TemplateEngine.process(...) is user-controlled. If you pass
+      a template string that's full SSTI; if it's a template name the attacker
+      picks the template.
+    metadata:
+      category: security
+      cwe: "CWE-1336"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $TE.process($T, ...)
+          - pattern: $TE.processString($T, ...)
+          - pattern: $C.process($T, ...)
+          - pattern: $FT.getTemplate($T)

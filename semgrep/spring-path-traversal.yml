@@ -1,0 +1,69 @@
+rules:
+  - id: spring-path-traversal-resource-from-tainted
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      Path used to build a Spring Resource (FileSystemResource / PathResource /
+      UrlResource / ClassPathResource) is tainted, with no Path.normalize() +
+      startsWith(baseDir) check. Same shape as CVE-2024-38816 and CVE-2016-9878.
+    metadata:
+      category: security
+      cwe: "CWE-22"
+      owasp: "A01:2021"
+      references:
+        - https://spring.io/security/cve-2024-38816/
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: new FileSystemResource($P)
+          - pattern: new FileSystemResource($P, ...)
+          - pattern: new PathResource($P)
+          - pattern: new UrlResource($P)
+          - pattern: new ClassPathResource($P)
+          - pattern: new InputStreamResource(Files.newInputStream($P))
+          - pattern: $RL.getResource($P)
+          - pattern: $RL.getResource("file:" + $P)
+          - pattern: ResourceUtils.getFile($P)
+          - pattern: ResourceUtils.getURL($P)
+          - pattern: Paths.get($BASE, $P)
+          - pattern: Path.of($BASE, $P)
+          - pattern: new java.io.File($BASE, $P)
+
+  # Functional WebMvc.fn / WebFlux.fn — CVE-2024-38816.
+  - id: spring-routerfunctions-resources-tainted-base
+    languages: [java]
+    severity: ERROR
+    message: >-
+      RouterFunctions.resources(...) mounts a directory over HTTP. If the base
+      Resource is built from user input you get CVE-2024-38816.
+    metadata:
+      category: security
+      cwe: "CWE-22"
+      references:
+        - https://spring.io/security/cve-2024-38816/
+    pattern-either:
+      - pattern: RouterFunctions.resources($PATTERN, $RES)
+      - pattern: $R.resources($PATTERN, $RES)
+
+  - id: spring-resource-handler-broad-pattern
+    languages: [java]
+    severity: WARNING
+    message: >-
+      addResourceHandler("/**") + addResourceLocations(...) — if any location
+      ever resolves to a user-writable directory, this is path traversal.
+    metadata:
+      category: security
+      cwe: "CWE-22"
+    patterns:
+      - pattern: |
+          $REG.addResourceHandler("/**").addResourceLocations(...);

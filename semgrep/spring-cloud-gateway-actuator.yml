@@ -1,0 +1,27 @@
+rules:
+  - id: spring-cloud-gateway-actuator-exposed
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include:
+        - "*.yml"
+        - "*.yaml"
+        - "*.properties"
+    message: >-
+      Spring Cloud Gateway actuator endpoint is exposed. Combined with the
+      ability to add a route with a SpEL filter (AddResponseHeader,
+      RewritePath) this is the CVE-2022-22947 RCE. Lock it down or disable.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+      references:
+        - https://spring.io/security/cve-2022-22947/
+    pattern-either:
+      - pattern: |
+          management.endpoints.web.exposure.include: "*"
+      - pattern: |
+          management.endpoints.web.exposure.include=*
+      - pattern: |
+          management.endpoint.gateway.enabled: true
+      - pattern: |
+          management.endpoint.gateway.enabled=true

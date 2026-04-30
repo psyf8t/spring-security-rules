@@ -1,0 +1,31 @@
+rules:
+  - id: spring-runtime-exec-tainted
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      Runtime.exec / ProcessBuilder argument comes from user input. Use
+      ProcessBuilder with an array and a fixed command, never a single string.
+    metadata:
+      category: security
+      cwe: "CWE-78"
+      owasp: "A03:2021"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @RequestBody $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: Runtime.getRuntime().exec($CMD, ...)
+          - pattern: Runtime.getRuntime().exec($CMD)
+          - pattern: new ProcessBuilder($CMD, ...)
+          - pattern: new ProcessBuilder().command($CMD, ...)
+          - pattern: $PB.command($CMD, ...)

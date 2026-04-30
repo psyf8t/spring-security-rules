@@ -1,0 +1,11 @@
+name: spring-security-rules/java
+version: 0.1.0
+library: false
+suites: codeql-suites
+extractor: java
+groups:
+  - security
+  - spring
+default-suite-file: codeql-suites/spring-security.qls
+dependencies:
+  codeql/java-all: "*"

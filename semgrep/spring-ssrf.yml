@@ -1,0 +1,78 @@
+rules:
+  - id: spring-ssrf-tainted-http-client
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      Outgoing HTTP request URL/host comes from the request. SSRF — internal
+      services, cloud metadata (169.254.169.254), kubelet, etcd. Use a host
+      allowlist and pre-resolve DNS to defeat rebinding.
+    metadata:
+      category: security
+      cwe: "CWE-918"
+      owasp: "A10:2021"
+      references:
+        - https://spring.io/security/cve-2024-22243/
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: (ServerHttpRequest $R).getQueryParams()
+          - pattern: (ServerHttpRequest $R).getHeaders()
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @RequestBody $T $X
+          - pattern: |
+              @ModelAttribute $T $X
+    pattern-sinks:
+      - pattern-either:
+          # RestTemplate
+          - pattern: $RT.getForObject($URL, ...)
+          - pattern: $RT.getForEntity($URL, ...)
+          - pattern: $RT.postForObject($URL, ...)
+          - pattern: $RT.postForEntity($URL, ...)
+          - pattern: $RT.put($URL, ...)
+          - pattern: $RT.delete($URL, ...)
+          - pattern: $RT.exchange($URL, ...)
+          - pattern: $RT.execute($URL, ...)
+          # WebClient
+          - pattern: $WC.get().uri($URL, ...).$X(...)
+          - pattern: $WC.post().uri($URL, ...).$X(...)
+          - pattern: $WC.put().uri($URL, ...).$X(...)
+          - pattern: $WC.delete().uri($URL, ...).$X(...)
+          - pattern: $WC.method(...).uri($URL, ...).$X(...)
+          # RestClient (Spring 6.1+)
+          - pattern: $RC.get().uri($URL, ...).$X(...)
+          - pattern: $RC.post().uri($URL, ...).$X(...)
+          # JDK HttpClient
+          - pattern: HttpRequest.newBuilder($URL, ...)
+          - pattern: HttpRequest.newBuilder().uri($URL, ...)
+          - pattern: $HC.send(HttpRequest.newBuilder($URL, ...).build(), ...)
+          # OkHttp
+          - pattern: new okhttp3.Request.Builder().url($URL).$X(...)
+          # Apache HC
+          - pattern: new org.apache.http.client.methods.HttpGet($URL)
+          - pattern: new org.apache.http.client.methods.HttpPost($URL)
+          # URI/URL constructors
+          - pattern: URI.create($URL)
+          - pattern: new URL($URL)
+
+  # RestTemplate follows redirects by default — a 30x to an internal address
+  # bypasses any host allowlist applied to the original URL.
+  - id: spring-rest-template-default-redirect-policy
+    languages: [java]
+    severity: INFO
+    message: >-
+      RestTemplate follows redirects by default. Set followRedirects=false on
+      the ClientHttpRequestFactory if you rely on host allowlists.
+    metadata:
+      category: security
+      cwe: "CWE-918"
+    pattern-either:
+      - pattern: new RestTemplate()
+      - pattern: new RestTemplate(...)

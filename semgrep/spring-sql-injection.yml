@@ -1,0 +1,76 @@
+rules:
+  - id: spring-jdbctemplate-string-concat
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      JdbcTemplate query built by string concat with user input. Use ? params
+      and the parameterised query/queryForObject overloads.
+    metadata:
+      category: security
+      cwe: "CWE-89"
+      owasp: "A03:2021"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @RequestBody $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $JT.query("..." + $X + "...", ...)
+          - pattern: $JT.queryForObject("..." + $X + "...", ...)
+          - pattern: $JT.queryForList("..." + $X + "...", ...)
+          - pattern: $JT.queryForMap("..." + $X + "...", ...)
+          - pattern: $JT.update("..." + $X + "...", ...)
+          - pattern: $JT.execute("..." + $X + "...", ...)
+          - pattern: $JT.batchUpdate("..." + $X + "...", ...)
+
+  - id: spring-jpa-createquery-string-concat
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      EntityManager.createQuery / createNativeQuery built by concat. Use named
+      parameters (:name + setParameter).
+    metadata:
+      category: security
+      cwe: "CWE-89"
+    pattern-sources:
+      - pattern-either:
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @RequestBody $T $X
+          - pattern: (HttpServletRequest $R).getParameter(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $EM.createQuery("..." + $X + "...", ...)
+          - pattern: $EM.createQuery("..." + $X + "...")
+          - pattern: $EM.createNativeQuery("..." + $X + "...", ...)
+          - pattern: $EM.createNativeQuery("..." + $X + "...")
+          - pattern: $S.createQuery("..." + $X + "...")
+
+  # @Query("... #{...} ...") — SpEL on the query side, CVE-2018-1273 family.
+  - id: spring-data-jpa-query-with-spel-pound
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Spring Data JPA @Query contains a #{...} SpEL expression. Don't use
+      #{} for dynamic predicates — CVE-2018-1273 family.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+      references:
+        - https://spring.io/security/cve-2018-1273/
+    pattern-regex: '@Query\([^)]*#\{[^}]+\}[^)]*\)'

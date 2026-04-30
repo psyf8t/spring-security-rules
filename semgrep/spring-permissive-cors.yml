@@ -1,0 +1,45 @@
+rules:
+  - id: spring-crossorigin-wildcard
+    languages: [java]
+    severity: WARNING
+    message: >-
+      @CrossOrigin(origins = "*"). Browsers block wildcard + credentials, but
+      Spring 5.3+ added allowedOriginPatterns("*") which gets around that.
+      List the origins.
+    metadata:
+      category: security
+      cwe: "CWE-942"
+      owasp: "A05:2021"
+    pattern-either:
+      - pattern: '@CrossOrigin(origins = "*", ...)'
+      - pattern: '@CrossOrigin(origins = {"*"}, ...)'
+      - pattern: '@CrossOrigin("*")'
+      - pattern: '@CrossOrigin'
+
+  - id: spring-cors-config-wildcard-with-credentials
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Wildcard origin + setAllowCredentials(true). Any site can read your
+      authenticated API responses.
+    metadata:
+      category: security
+      cwe: "CWE-942"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $C.addAllowedOriginPattern("*");
+              ...
+              $C.setAllowCredentials(true);
+          - pattern: |
+              $C.setAllowCredentials(true);
+              ...
+              $C.addAllowedOriginPattern("*");
+          - pattern: |
+              $C.addAllowedOrigin("*");
+              ...
+              $C.setAllowCredentials(true);
+          - pattern: |
+              $C.setAllowCredentials(true);
+              ...
+              $C.addAllowedOrigin("*");

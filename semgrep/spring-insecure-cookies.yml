@@ -1,0 +1,37 @@
+rules:
+  - id: spring-cookie-missing-secure-httponly
+    languages: [java]
+    severity: WARNING
+    message: Cookie created without setSecure(true) and setHttpOnly(true).
+    metadata:
+      category: security
+      cwe: "CWE-1004"
+    patterns:
+      - pattern: |
+          $C = new Cookie($N, $V);
+      - pattern-not-inside: |
+          {
+            ...
+            $C.setSecure(true);
+            ...
+            $C.setHttpOnly(true);
+            ...
+          }
+
+  - id: spring-responsecookie-not-secure
+    languages: [java]
+    severity: WARNING
+    message: ResponseCookie built without secure(true) + httpOnly(true). Set SameSite=Strict|Lax for session/CSRF cookies.
+    metadata:
+      category: security
+      cwe: "CWE-1004"
+    pattern-either:
+      - pattern: |
+          ResponseCookie.from($N, $V).$Y(...).build()
+      - pattern: |
+          ResponseCookie.from($N, $V).build()
+    pattern-not-either:
+      - pattern: |
+          ResponseCookie.from($N, $V).secure(true).httpOnly(true).$Y(...).build()
+      - pattern: |
+          ResponseCookie.from($N, $V).httpOnly(true).secure(true).$Y(...).build()

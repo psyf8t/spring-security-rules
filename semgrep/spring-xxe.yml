@@ -1,0 +1,90 @@
+rules:
+  - id: spring-xxe-jaxb2marshaller-process-external
+    languages: [java]
+    severity: ERROR
+    message: Jaxb2Marshaller with processExternalEntities=true. XXE.
+    metadata:
+      category: security
+      cwe: "CWE-611"
+      owasp: "A05:2021"
+    pattern-either:
+      - pattern: $M.setProcessExternalEntities(true)
+      - pattern: $M.setSupportDtd(true)
+
+  - id: spring-xxe-documentbuilderfactory-default
+    languages: [java]
+    severity: ERROR
+    message: >-
+      DocumentBuilderFactory at defaults — XXE. Set
+      "http://apache.org/xml/features/disallow-doctype-decl" = true and
+      setExpandEntityReferences(false).
+    metadata:
+      category: security
+      cwe: "CWE-611"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $F = DocumentBuilderFactory.newInstance();
+              ...
+              $F.newDocumentBuilder()
+      - pattern-not: |
+          $F = DocumentBuilderFactory.newInstance();
+          ...
+          $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+          ...
+          $F.newDocumentBuilder()
+
+  - id: spring-xxe-saxparserfactory-default
+    languages: [java]
+    severity: ERROR
+    message: SAXParserFactory without disallow-doctype-decl. XXE.
+    metadata:
+      category: security
+      cwe: "CWE-611"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $F = SAXParserFactory.newInstance();
+              ...
+              $F.newSAXParser()
+      - pattern-not: |
+          $F = SAXParserFactory.newInstance();
+          ...
+          $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+          ...
+          $F.newSAXParser()
+
+  - id: spring-xxe-xmlinputfactory-default
+    languages: [java]
+    severity: ERROR
+    message: XMLInputFactory without IS_SUPPORTING_EXTERNAL_ENTITIES=false / SUPPORT_DTD=false. XXE.
+    metadata:
+      category: security
+      cwe: "CWE-611"
+    patterns:
+      - pattern: $F = XMLInputFactory.newInstance()
+      - pattern-not-inside: |
+          {
+            ...
+            $F.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+            ...
+          }
+
+  - id: spring-xstream-default
+    languages: [java]
+    severity: ERROR
+    message: >-
+      XStream without an allowlist. Pre-1.4.18 this is RCE; even after,
+      gadget chains still exist. Call addPermission(NoTypePermission.NONE)
+      and explicitly allow the classes you use.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+    patterns:
+      - pattern: $X = new XStream(...)
+      - pattern-not-inside: |
+          {
+            ...
+            $X.addPermission(NoTypePermission.NONE);
+            ...
+          }

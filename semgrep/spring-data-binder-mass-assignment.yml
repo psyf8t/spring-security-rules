@@ -1,0 +1,173 @@
+rules:
+  # Controller method takes a POJO with no @RequestBody. Spring's WebDataBinder
+  # walks property paths from the request — including class.module.classLoader.*
+  # (Spring4Shell). Use a dedicated DTO or annotate the param.
+  - id: spring-mvc-pojo-parameter-without-requestbody
+    languages: [java]
+    severity: WARNING
+    message: >-
+      Controller takes a POJO without @RequestBody / @ModelAttribute. Spring
+      will bind every request parameter into the object's property tree
+      (mass assignment, plus the Spring4Shell class.module.classLoader chain).
+      Use a separate DTO or add an @InitBinder with setAllowedFields /
+      setDisallowedFields.
+    metadata:
+      category: security
+      cwe: "CWE-915"
+      owasp: "A08:2021"
+      references:
+        - https://spring.io/security/cve-2022-22965/
+        - https://spring.io/security/cve-2022-22968/
+        - https://spring.io/security/cve-2024-38820/
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              @Controller
+              class $C { ... }
+          - pattern-inside: |
+              @RestController
+              class $C { ... }
+      - pattern-either:
+          - pattern: |
+              @RequestMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+          - pattern: |
+              @GetMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+          - pattern: |
+              @PostMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+          - pattern: |
+              @PutMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+          - pattern: |
+              @PatchMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+          - pattern: |
+              @DeleteMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @RequestBody $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @PathVariable $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @RequestParam $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @RequestHeader $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @CookieValue $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @ModelAttribute $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., HttpServletRequest $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., HttpServletResponse $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Model $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., BindingResult $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., MultipartFile $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Principal $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Authentication $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Pageable $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Sort $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., String $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., int $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., long $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Long $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., Integer $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., UUID $P, ...) { ... }
+
+  # @InitBinder that doesn't block class-path leaks. This is the precise
+  # Spring4Shell shape.
+  - id: spring-init-binder-missing-class-disallow
+    languages: [java]
+    severity: ERROR
+    message: >-
+      @InitBinder doesn't block property paths reaching ClassLoader (class.*,
+      *.class.*, Class.*, *.Class.*). Add setDisallowedFields("class.*",
+      "Class.*", "*.class.*", "*.Class.*") — the case-insensitive variant
+      is what CVE-2024-38820 was about.
+    metadata:
+      category: security
+      cwe: "CWE-915"
+      references:
+        - https://spring.io/security/cve-2022-22965/
+        - https://spring.io/security/cve-2024-38820/
+    patterns:
+      - pattern: |
+          @InitBinder
+          $RT $M(WebDataBinder $B, ...) {
+            ...
+          }
+      - pattern-not: |
+          @InitBinder
+          $RT $M(WebDataBinder $B, ...) {
+            ...
+            $B.setDisallowedFields(..., "=~/(?i).*class.*/", ...);
+            ...
+          }
+      - pattern-not: |
+          @InitBinder
+          $RT $M(WebDataBinder $B, ...) {
+            ...
+            $B.setAllowedFields(...);
+            ...
+          }
+
+  # Just don't take an @Entity straight off the wire. Map to a DTO.
+  - id: spring-jpa-entity-as-controller-parameter
+    languages: [java]
+    severity: WARNING
+    message: >-
+      JPA entity used as a controller parameter — mass assignment on the
+      domain model (role, isAdmin, password, you name it). Take a DTO instead.
+    metadata:
+      category: security
+      cwe: "CWE-915"
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              @Controller
+              class $C { ... }
+          - pattern-inside: |
+              @RestController
+              class $C { ... }
+      - pattern-either:
+          - pattern: |
+              @RequestMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PostMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PutMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PatchMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+      - metavariable-pattern:
+          metavariable: $ENTITY
+          patterns:
+            - pattern-regex: "^[A-Z][A-Za-z0-9_]*$"
+
+  - id: spring-jpa-entity-as-controller-parameter-precise
+    languages: [java]
+    severity: ERROR
+    message: >-
+      @RequestBody binds an @Entity directly. Map a DTO/Form (MapStruct,
+      ModelMapper, plain copy — anything with a whitelist).
+    metadata:
+      category: security
+      cwe: "CWE-915"
+    patterns:
+      - pattern: |
+          @PostMapping(...) $RT $M(..., @RequestBody $E $P, ...) { ... }
+      - metavariable-pattern:
+          metavariable: $E
+          language: generic
+          pattern: |
+            @Entity
+            ...
+            class $X

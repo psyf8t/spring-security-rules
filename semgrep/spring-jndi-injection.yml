@@ -1,0 +1,55 @@
+rules:
+  - id: spring-jndi-lookup-tainted
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      JNDI lookup() on a user-controlled name. Log4Shell-class RCE on JREs
+      that haven't disabled remote codebase trust.
+    metadata:
+      category: security
+      cwe: "CWE-74"
+      owasp: "A03:2021"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $CTX.lookup($N)
+          - pattern: new InitialContext().lookup($N)
+          - pattern: new InitialDirContext().lookup($N)
+          - pattern: $JT.lookup($N)
+          - pattern: $JT.lookup($N, ...)
+
+  - id: spring-ldap-filter-concat
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: >-
+      LDAP filter built by string concat. Use LdapQueryBuilder with parameters
+      or Filter.encode().
+    metadata:
+      category: security
+      cwe: "CWE-90"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $LT.search($BASE, $FILTER, ...)
+          - pattern: $LT.search($BASE, $FILTER, $SCOPE, ...)
+          - pattern: $LT.searchForObject($BASE, $FILTER, ...)
+          - pattern: $LT.find(LdapQuery.query()...filter($FILTER), ...)

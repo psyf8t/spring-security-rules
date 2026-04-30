@@ -1,0 +1,106 @@
+rules:
+  # Tainted string -> SpelExpressionParser.parseExpression / parseRaw.
+  - id: spring-spel-injection-parse-expression
+    languages: [java]
+    severity: ERROR
+    message: >-
+      User-controlled string parsed as SpEL. RCE via T(java.lang.Runtime).
+      If you actually need SpEL on user input, use SimpleEvaluationContext
+      with a fixed root, never StandardEvaluationContext.
+    mode: taint
+    metadata:
+      category: security
+      cwe: "CWE-94"
+      owasp: "A03:2021"
+      references:
+        - https://spring.io/security/cve-2022-22963/
+        - https://spring.io/security/cve-2018-1273/
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: (HttpServletRequest $REQ).getHeader(...)
+              - pattern: (HttpServletRequest $REQ).getQueryString()
+              - pattern: (HttpServletRequest $REQ).getRequestURI()
+              - pattern: (ServerHttpRequest $REQ).getQueryParams()
+              - pattern: (ServletRequest $REQ).getParameter(...)
+      - pattern-either:
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @PathVariable $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @RequestBody $T $X
+          - pattern: |
+              @ModelAttribute $T $X
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $PARSER.parseExpression($EXPR, ...)
+              - pattern: $PARSER.parseExpression($EXPR)
+              - pattern: $PARSER.parseRaw($EXPR)
+          - metavariable-pattern:
+              metavariable: $PARSER
+              patterns:
+                - pattern-either:
+                    - pattern: (SpelExpressionParser $X)
+                    - pattern: (ExpressionParser $X)
+
+  # StandardEvaluationContext gives you reflection / T(...) / .class for free.
+  # Even one fragment of user input in the expression is enough for RCE.
+  - id: spring-spel-standard-evaluation-context
+    languages: [java]
+    severity: WARNING
+    message: >-
+      StandardEvaluationContext exposes reflection (T(...), .class, ctors).
+      Use SimpleEvaluationContext.forReadOnlyDataBinding() / forPropertyAccessors(...).
+    metadata:
+      category: security
+      cwe: "CWE-94"
+      references:
+        - https://spring.io/security/cve-2018-1270/
+    pattern-either:
+      - pattern: new StandardEvaluationContext(...)
+      - pattern: |
+          StandardEvaluationContext $CTX = ...;
+
+  # @Value("..." + X + "...") — if X comes from a property and contains #{...},
+  # SpEL evaluates it on bean init.
+  - id: spring-spel-value-annotation-concat
+    languages: [java]
+    severity: WARNING
+    message: >-
+      @Value with string concat. If the concatenated piece can carry #{...},
+      that's SpEL injection at bean initialisation.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+    pattern: |
+      @Value("..." + $X + "...")
+
+  - id: spring-spel-expression-getvalue-tainted
+    languages: [java]
+    severity: WARNING
+    mode: taint
+    message: >-
+      Expression.getValue/setValue with tainted root or tainted Expression
+      string. Same RCE shape as CVE-2018-1273 / CVE-2022-22963.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: |
+              @RequestParam $T $X
+          - pattern: |
+              @RequestHeader $T $X
+          - pattern: |
+              @PathVariable $T $X
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $E.getValue($CTX, ..., $TAINTED, ...)
+          - pattern: $E.setValue($CTX, $TAINTED, ...)

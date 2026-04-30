@@ -1,0 +1,34 @@
+rules:
+  - id: spring-cloud-function-routing-function
+    languages: [java]
+    severity: ERROR
+    message: >-
+      RoutingFunction in use. Header `spring.cloud.function.routing-expression`
+      is parsed as SpEL — CVE-2022-22963 attack surface. Drop the dependency
+      / @EnableFunction if unused; otherwise validate the header and only
+      accept function IDs, never SpEL.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+      references:
+        - https://spring.io/security/cve-2022-22963/
+    pattern-either:
+      - pattern: new org.springframework.cloud.function.context.config.RoutingFunction(...)
+      - pattern: |
+          @Bean
+          ... RoutingFunction $M(...) { ... }
+
+  - id: spring-cloud-function-routing-header-direct-eval
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: spring.cloud.function.routing-expression header parsed straight into SpEL — CVE-2022-22963.
+    metadata:
+      category: security
+      cwe: "CWE-94"
+    pattern-sources:
+      - pattern: $H.get("spring.cloud.function.routing-expression")
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $P.parseExpression($X, ...)
+          - pattern: $P.parseExpression($X)

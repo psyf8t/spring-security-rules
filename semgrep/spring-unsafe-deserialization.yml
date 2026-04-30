@@ -1,0 +1,77 @@
+rules:
+  - id: spring-httpinvoker-exporter-bean
+    languages: [java]
+    severity: ERROR
+    message: >-
+      HttpInvoker / Hessian / Burlap / Rmi / JmsInvoker exporter beans accept
+      Java-serialised payloads from the network. Intrinsically unsafe
+      (CVE-2016-1000027). Drop them or replace with REST.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+      owasp: "A08:2021"
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2016-1000027
+    pattern-either:
+      - pattern: |
+          @Bean ... HttpInvokerServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean ... SimpleHttpInvokerServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean ... HessianServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean ... BurlapServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean ... RmiServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean ... JmsInvokerServiceExporter $M(...) { ... }
+      - pattern: new HttpInvokerServiceExporter()
+      - pattern: new SimpleHttpInvokerServiceExporter()
+      - pattern: new HessianServiceExporter()
+      - pattern: new BurlapServiceExporter()
+      - pattern: new RmiServiceExporter()
+      - pattern: new JmsInvokerServiceExporter()
+
+  - id: spring-jackson-default-typing-enabled
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Jackson default typing accepts an arbitrary @class on the wire — there
+      are dozens of public gadget chains. Use a PolymorphicTypeValidator with
+      an explicit allowlist.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+      references:
+        - https://github.com/FasterXML/jackson-databind/issues/2195
+    pattern-either:
+      - pattern: $M.enableDefaultTyping(...)
+      - pattern: $M.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ...)
+      - pattern: $M.activateDefaultTypingAsProperty(LaissezFaireSubTypeValidator.instance, ...)
+
+  - id: spring-objectinputstream-from-http
+    languages: [java]
+    severity: ERROR
+    mode: taint
+    message: ObjectInputStream wrapped around an HTTP request body. Deserialization RCE.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+    pattern-sources:
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getInputStream()
+          - pattern: (HttpServletRequest $R).getReader()
+          - pattern: (ServletRequest $R).getInputStream()
+    pattern-sinks:
+      - pattern: new ObjectInputStream($IS)
+
+  - id: spring-xml-decoder
+    languages: [java]
+    severity: ERROR
+    message: java.beans.XMLDecoder instantiates arbitrary classes from XML. Don't use it on untrusted input.
+    metadata:
+      category: security
+      cwe: "CWE-502"
+    pattern-either:
+      - pattern: new XMLDecoder($S)
+      - pattern: new java.beans.XMLDecoder($S)
