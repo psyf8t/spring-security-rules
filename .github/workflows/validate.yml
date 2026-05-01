@@ -54,11 +54,24 @@ jobs:
           exit $fail
 
       - name: Run CVE regression scans
+        # CVE fixtures contain vulnerable code on purpose — `--error` would
+        # turn every expected finding into a CI failure. `semgrep test`
+        # cannot verify the // ruleid: markers either, because it rejects a
+        # rules/tests split ("TODO: the split of tests/ and rules/ is not
+        # supported yet"). Smoke test instead: each fixture must produce at
+        # least one finding. If a rule regresses to silence on a known-bad
+        # input, this step fails.
         run: |
           set -e
           for d in tests/cves/CVE-*; do
             echo "::group::semgrep scan $d"
-            semgrep scan --config semgrep/ --error "$d"
+            count=$(semgrep scan --config semgrep/ --json "$d" 2>/dev/null \
+              | python3 -c "import json,sys; print(len(json.load(sys.stdin)['results']))")
+            if [ "$count" -lt 1 ]; then
+              echo "FAIL: $d produced 0 findings (expected at least 1)"
+              exit 1
+            fi
+            echo "OK: $d produced $count finding(s)"
             echo "::endgroup::"
           done
 
