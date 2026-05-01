@@ -1,0 +1,76 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-semgrep-1.134.0
+
+      - name: Install Semgrep (pinned)
+        run: pip install --no-cache-dir 'semgrep==1.134.0'
+
+      - name: Validate rules
+        run: semgrep --validate --config semgrep/ --strict
+
+      - name: Run per-rule paired tests
+        run: |
+          set -e
+          fail=0
+          for f in tests/spring-*.java tests/spring-*.properties; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            # `spring-cloud-gateway-actuator.gateway.properties` -> yaml stem
+            stem=${base%.*}
+            stem=${stem%.gateway}
+            cfg="semgrep/${stem}.yml"
+            if [ ! -f "$cfg" ]; then
+              echo "no paired YAML for $f (looked for $cfg) — skipping"
+              continue
+            fi
+            echo "::group::semgrep test $cfg <- $f"
+            semgrep test --config "$cfg" "$f" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+      - name: Run CVE regression scans
+        run: |
+          set -e
+          for d in tests/cves/CVE-*; do
+            echo "::group::semgrep scan $d"
+            semgrep scan --config semgrep/ --error "$d"
+            echo "::endgroup::"
+          done
+
+  codeql:
+    runs-on: ubuntu-latest
+    # CodeQL CLI install is heavy; only run on demand or weekly.
+    if: contains(github.event.pull_request.labels.*.name, 'codeql') || github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java
+      - name: Compile CodeQL queries
+        run: |
+          set -e
+          for q in codeql/*.ql; do
+            echo "::group::codeql query compile $q"
+            codeql query compile --search-path . "$q"
+            echo "::endgroup::"
+          done
