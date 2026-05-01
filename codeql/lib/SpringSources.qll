@@ -22,7 +22,7 @@ class SpringControllerInputParameter extends RemoteFlowSource {
 
 class SpringWebFluxRequestSource extends RemoteFlowSource {
   SpringWebFluxRequestSource() {
-    exists(MethodAccess ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().getASupertype*().hasQualifiedName(
         "org.springframework.http.server.reactive", "ServerHttpRequest") and
       m.hasName(["getQueryParams", "getHeaders", "getPath", "getURI", "getCookies",
@@ -35,14 +35,14 @@ class SpringWebFluxRequestSource extends RemoteFlowSource {
 
 class StompMessageSource extends RemoteFlowSource {
   StompMessageSource() {
-    exists(MethodAccess ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("org.springframework.messaging.simp.stomp", "StompHeaderAccessor") and
       m.hasName(["getFirstNativeHeader", "getNativeHeader", "getDestination", "getMessage"])
     )
     or
-    exists(MethodAccess ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("org.springframework.messaging", "Message") and
       m.hasName(["getPayload", "getHeaders"])
     )

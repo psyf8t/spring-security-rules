@@ -5,7 +5,7 @@ import semmle.code.java.dataflow.DataFlow
 
 class SpelParseSink extends DataFlow::Node {
   SpelParseSink() {
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().getASupertype*().hasQualifiedName(
         "org.springframework.expression", "ExpressionParser") and
       m.hasName(["parseExpression", "parseRaw"])
@@ -15,7 +15,7 @@ class SpelParseSink extends DataFlow::Node {
 
 class OutgoingHttpUrlSink extends DataFlow::Node {
   OutgoingHttpUrlSink() {
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       // RestTemplate / RestOperations
       m.getDeclaringType()
           .getASupertype*()
@@ -25,7 +25,7 @@ class OutgoingHttpUrlSink extends DataFlow::Node {
     )
     or
     // WebClient / WebClient.RequestBodyUriSpec.uri / RequestHeadersUriSpec.uri
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("org.springframework.web.reactive.function.client",
@@ -34,13 +34,13 @@ class OutgoingHttpUrlSink extends DataFlow::Node {
     )
     or
     // JDK HttpRequest builder
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("java.net.http", ["HttpRequest", "HttpRequest$Builder"]) and
       m.hasName(["uri", "newBuilder"])
     )
     or
     // OkHttp Request.Builder.url(...)
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("okhttp3", "Request$Builder") and m.hasName("url")
     )
     or
@@ -67,17 +67,17 @@ class FileResourceConstructionSink extends DataFlow::Node {
       cc.getConstructedType().hasQualifiedName("java.io", "File")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("org.springframework.core.io", "ResourceLoader") and
       m.hasName("getResource")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("org.springframework.util", "ResourceUtils") and
       m.hasName(["getFile", "getURL"])
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("java.nio.file", ["Paths", "Path"]) and
       m.hasName(["get", "of"])
     )
@@ -86,14 +86,14 @@ class FileResourceConstructionSink extends DataFlow::Node {
 
 class RedirectSink extends DataFlow::Node {
   RedirectSink() {
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("javax.servlet.http", "HttpServletResponse") and
       m.hasName("sendRedirect")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("jakarta.servlet.http", "HttpServletResponse") and
@@ -108,7 +108,7 @@ class RedirectSink extends DataFlow::Node {
           .hasQualifiedName("org.springframework.web.reactive.result.view", "RedirectView")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("org.springframework.http", "HttpHeaders") and
       m.hasName("setLocation")
     )
@@ -117,12 +117,12 @@ class RedirectSink extends DataFlow::Node {
 
 class JndiLookupSink extends DataFlow::Node {
   JndiLookupSink() {
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().getASupertype*().hasQualifiedName("javax.naming", "Context") and
       m.hasName("lookup")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("org.springframework.jndi", "JndiTemplate") and
       m.hasName("lookup")
     )
@@ -131,7 +131,7 @@ class JndiLookupSink extends DataFlow::Node {
 
 class SqlStringSink extends DataFlow::Node {
   SqlStringSink() {
-    exists(MethodAccess ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("org.springframework.jdbc.core",
@@ -140,21 +140,21 @@ class SqlStringSink extends DataFlow::Node {
                  "queryForRowSet", "update", "execute", "batchUpdate"])
     )
     or
-    exists(MethodAccess ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("javax.persistence", "EntityManager") and
       m.hasName(["createQuery", "createNativeQuery"])
     )
     or
-    exists(MethodAccess ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType()
           .getASupertype*()
           .hasQualifiedName("jakarta.persistence", "EntityManager") and
       m.hasName(["createQuery", "createNativeQuery"])
     )
     or
-    exists(MethodAccess ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getArgument(0) = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().getASupertype*().hasQualifiedName("org.hibernate", "Session") and
       m.hasName(["createQuery", "createNativeQuery", "createSQLQuery"])
     )
@@ -163,7 +163,7 @@ class SqlStringSink extends DataFlow::Node {
 
 class ProcessExecSink extends DataFlow::Node {
   ProcessExecSink() {
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("java.lang", "Runtime") and m.hasName("exec")
     )
     or
@@ -171,7 +171,7 @@ class ProcessExecSink extends DataFlow::Node {
       cc.getConstructedType().hasQualifiedName("java.lang", "ProcessBuilder")
     )
     or
-    exists(MethodAccess ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
+    exists(MethodCall ma, Method m | ma.getAnArgument() = this.asExpr() and m = ma.getMethod() |
       m.getDeclaringType().hasQualifiedName("java.lang", "ProcessBuilder") and
       m.hasName("command")
     )

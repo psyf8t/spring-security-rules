@@ -24,7 +24,7 @@ import SstiFlow::PathGraph
 
 class TemplateEngineSink extends DataFlow::Node {
   TemplateEngineSink() {
-    exists(MethodAccess ma | ma.getArgument(0) = this.asExpr() |
+    exists(MethodCall ma | ma.getArgument(0) = this.asExpr() |
       ma.getMethod()
           .getDeclaringType()
           .getASupertype*()

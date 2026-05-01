@@ -33,7 +33,7 @@ module SsrfConfig implements DataFlow::ConfigSig {
       b.asExpr() = cc
     )
     or
-    exists(MethodAccess ma |
+    exists(MethodCall ma |
       ma.getMethod().hasName("create") and
       ma.getMethod().getDeclaringType().hasQualifiedName("java.net", "URI") and
       ma.getAnArgument() = a.asExpr() and
@@ -41,7 +41,7 @@ module SsrfConfig implements DataFlow::ConfigSig {
     )
     or
     // UriComponentsBuilder.fromUriString(...).build().toUri()
-    exists(MethodAccess fromUri, MethodAccess build, MethodAccess toUri |
+    exists(MethodCall fromUri, MethodCall build, MethodCall toUri |
       fromUri.getMethod().hasName(["fromUriString", "fromHttpUrl"]) and
       fromUri.getAnArgument() = a.asExpr() and
       build.getQualifier() = fromUri and

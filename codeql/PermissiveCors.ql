@@ -30,7 +30,7 @@ predicate crossOriginWildcard(Annotation a, string what) {
 
 predicate corsConfigWildcardCredentials(Variable v, string what) {
   v.getType().(RefType).hasQualifiedName("org.springframework.web.cors", "CorsConfiguration") and
-  exists(MethodAccess origin, MethodAccess cred |
+  exists(MethodCall origin, MethodCall cred |
     origin.getQualifier() = v.getAnAccess() and
     cred.getQualifier() = v.getAnAccess() and
     (

@@ -22,10 +22,10 @@ import OpenRedirectFlow::PathGraph
 
 class RedirectStringReturn extends DataFlow::Node {
   RedirectStringReturn() {
-    exists(ReturnStmt rs, AddExpr concat |
-      rs.getResult() = concat and
-      concat.getLeftOperand().(StringLiteral).getValue().regexpMatch("(?i)redirect:.*") and
-      concat.getRightOperand() = this.asExpr()
+    exists(ReturnStmt rs, AddExpr concatExpr |
+      rs.getResult() = concatExpr and
+      concatExpr.getLeftOperand().(StringLiteral).getValue().regexpMatch("(?i)redirect:.*") and
+      concatExpr.getRightOperand() = this.asExpr()
     )
   }
 }

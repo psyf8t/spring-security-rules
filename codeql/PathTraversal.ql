@@ -24,7 +24,7 @@ import PathTraversalFlow::PathGraph
 
 class NormalizeAndCheckSanitizer extends DataFlow::Node {
   NormalizeAndCheckSanitizer() {
-    exists(MethodAccess normalize, MethodAccess startsWith |
+    exists(MethodCall normalize, MethodCall startsWith |
       normalize.getMethod().hasName("normalize") and
       normalize.getMethod()
           .getDeclaringType()

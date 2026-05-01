@@ -15,7 +15,7 @@
 
 import java
 
-predicate jaxb2DangerousSetter(MethodAccess ma, string what) {
+predicate jaxb2DangerousSetter(MethodCall ma, string what) {
   ma.getMethod().getDeclaringType().hasQualifiedName(
     "org.springframework.oxm.jaxb", "Jaxb2Marshaller") and
   ma.getMethod().hasName(["setProcessExternalEntities", "setSupportDtd"]) and
@@ -23,13 +23,13 @@ predicate jaxb2DangerousSetter(MethodAccess ma, string what) {
   what = ma.getMethod().getName() + "(true)"
 }
 
-predicate factoryUsedWithoutHardening(MethodAccess factory, string what) {
+predicate factoryUsedWithoutHardening(MethodCall factory, string what) {
   factory.getMethod().hasName("newInstance") and
   factory.getMethod()
       .getDeclaringType()
       .hasQualifiedName("javax.xml.parsers",
         ["DocumentBuilderFactory", "SAXParserFactory"]) and
-  not exists(MethodAccess hardening |
+  not exists(MethodCall hardening |
     hardening.getQualifier+() = factory or hardening.getQualifier() = factory.getEnclosingStmt().(LocalVariableDeclStmt).getAVariable().getAnAccess() |
     hardening.getMethod().hasName("setFeature") and
     hardening.getArgument(0).(StringLiteral).getValue() = "http://apache.org/xml/features/disallow-doctype-decl" and
@@ -38,10 +38,10 @@ predicate factoryUsedWithoutHardening(MethodAccess factory, string what) {
   what = factory.getMethod().getDeclaringType().getName() + ".newInstance() without disallow-doctype-decl"
 }
 
-predicate xmlInputFactoryUnhardened(MethodAccess factory, string what) {
+predicate xmlInputFactoryUnhardened(MethodCall factory, string what) {
   factory.getMethod().hasName("newInstance") and
   factory.getMethod().getDeclaringType().hasQualifiedName("javax.xml.stream", "XMLInputFactory") and
-  not exists(MethodAccess set |
+  not exists(MethodCall set |
     set.getMethod().hasName("setProperty") and
     set.getQualifier() = factory.getEnclosingStmt().(LocalVariableDeclStmt).getAVariable().getAnAccess() and
     set.getArgument(0).toString().regexpMatch(".*SUPPORT_DTD.*") and
@@ -52,9 +52,9 @@ predicate xmlInputFactoryUnhardened(MethodAccess factory, string what) {
 
 from Element e, string what
 where
-  exists(MethodAccess ma | jaxb2DangerousSetter(ma, what) and e = ma)
+  exists(MethodCall ma | jaxb2DangerousSetter(ma, what) and e = ma)
   or
-  exists(MethodAccess ma | factoryUsedWithoutHardening(ma, what) and e = ma)
+  exists(MethodCall ma | factoryUsedWithoutHardening(ma, what) and e = ma)
   or
-  exists(MethodAccess ma | xmlInputFactoryUnhardened(ma, what) and e = ma)
+  exists(MethodCall ma | xmlInputFactoryUnhardened(ma, what) and e = ma)
 select e, "XXE risk: " + what + "."

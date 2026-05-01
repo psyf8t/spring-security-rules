@@ -47,7 +47,7 @@ predicate exporterDeclaration(Element e, string what) {
   )
 }
 
-predicate jacksonDefaultTyping(MethodAccess ma, string what) {
+predicate jacksonDefaultTyping(MethodCall ma, string what) {
   ma.getMethod().getDeclaringType().getASupertype*().hasQualifiedName("com.fasterxml.jackson.databind", "ObjectMapper") and
   ma.getMethod().hasName(["enableDefaultTyping", "activateDefaultTyping", "activateDefaultTypingAsProperty"]) and
   what = "ObjectMapper." + ma.getMethod().getName() + "(...)"
@@ -66,6 +66,6 @@ predicate ois_from_http(ConstructorCall cc, string what) {
 from Element e, string what
 where
   exporterDeclaration(e, what) or
-  exists(MethodAccess ma | jacksonDefaultTyping(ma, what) and e = ma) or
+  exists(MethodCall ma | jacksonDefaultTyping(ma, what) and e = ma) or
   exists(ConstructorCall cc | ois_from_http(cc, what) and e = cc)
 select e, "Unsafe deserialization surface: " + what + "."

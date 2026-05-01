@@ -15,10 +15,14 @@
 
 import java
 
-class CsrfDisableCall extends MethodAccess {
+// Matches the chained `http.csrf().disable()` shape and the method-reference
+// `http.csrf(AbstractHttpConfigurer::disable)` shape. The lambda body
+// variant `http.csrf(c -> c.disable())` is left to Semgrep — modelling
+// "any disable() call whose receiver type is CsrfConfigurer" cleanly in
+// CodeQL needs more setup than this single-file query is worth.
+class CsrfDisableCall extends MethodCall {
   CsrfDisableCall() {
-    // http.csrf().disable()
-    exists(MethodAccess csrf |
+    exists(MethodCall csrf |
       csrf.getMethod().hasName("csrf") and
       csrf.getMethod()
           .getDeclaringType()
@@ -28,21 +32,21 @@ class CsrfDisableCall extends MethodAccess {
       this.getQualifier() = csrf and
       this.getMethod().hasName("disable")
     )
-    or
-    // http.csrf(c -> c.disable())
-    exists(LambdaExpr le |
-      le.getEnclosingCallable() = this.getEnclosingCallable() and
-      le.getAParameter()
-          .getType()
-          .(RefType)
-          .getASupertype*()
-          .hasQualifiedName("org.springframework.security.config.annotation.web.configurers",
-            "CsrfConfigurer") and
-      this.getMethod().hasName("disable") and
-      this.getEnclosingStmt().getEnclosingStmt*() = le.getExprBody().(Stmt)
-    )
   }
 }
 
-from CsrfDisableCall c
+class CsrfDisableMethodRef extends MethodCall {
+  CsrfDisableMethodRef() {
+    this.getMethod().hasName("csrf") and
+    this.getMethod()
+        .getDeclaringType()
+        .getASupertype*()
+        .hasQualifiedName("org.springframework.security.config.annotation.web.builders",
+          ["HttpSecurity", "WebSecurity"]) and
+    this.getAnArgument().toString().regexpMatch(".*disable.*")
+  }
+}
+
+from Call c
+where c instanceof CsrfDisableCall or c instanceof CsrfDisableMethodRef
 select c, "CSRF protection disabled."

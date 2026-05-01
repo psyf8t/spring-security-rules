@@ -22,34 +22,34 @@
 import java
 import lib.SpringSinks
 
-predicate isInfrastructureType(RefType t) {
-  t.hasQualifiedName("javax.servlet.http",
+predicate isInfrastructureType(Type t) {
+  t.(RefType).hasQualifiedName("javax.servlet.http",
       ["HttpServletRequest", "HttpServletResponse", "HttpSession", "Cookie"])
   or
-  t.hasQualifiedName("jakarta.servlet.http",
+  t.(RefType).hasQualifiedName("jakarta.servlet.http",
       ["HttpServletRequest", "HttpServletResponse", "HttpSession", "Cookie"])
   or
-  t.hasQualifiedName("org.springframework.ui", "Model")
+  t.(RefType).hasQualifiedName("org.springframework.ui", "Model")
   or
-  t.hasQualifiedName("org.springframework.ui", "ModelMap")
+  t.(RefType).hasQualifiedName("org.springframework.ui", "ModelMap")
   or
-  t.hasQualifiedName("org.springframework.validation", "BindingResult")
+  t.(RefType).hasQualifiedName("org.springframework.validation", "BindingResult")
   or
-  t.hasQualifiedName("org.springframework.web.multipart", "MultipartFile")
+  t.(RefType).hasQualifiedName("org.springframework.web.multipart", "MultipartFile")
   or
-  t.hasQualifiedName("java.security", "Principal")
+  t.(RefType).hasQualifiedName("java.security", "Principal")
   or
-  t.hasQualifiedName("org.springframework.security.core", "Authentication")
+  t.(RefType).hasQualifiedName("org.springframework.security.core", "Authentication")
   or
-  t.hasQualifiedName("org.springframework.data.domain", ["Pageable", "Sort"])
+  t.(RefType).hasQualifiedName("org.springframework.data.domain", ["Pageable", "Sort"])
   or
-  t.hasQualifiedName("java.util", ["Locale", "TimeZone", "UUID"])
+  t.(RefType).hasQualifiedName("java.util", ["Locale", "TimeZone", "UUID"])
   or
   t instanceof PrimitiveType
   or
   t instanceof BoxedType
   or
-  t.hasQualifiedName("java.lang", "String")
+  t.(RefType).hasQualifiedName("java.lang", "String")
 }
 
 predicate isRequestParameter(Parameter p) {

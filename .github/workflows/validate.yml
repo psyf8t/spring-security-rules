@@ -97,20 +97,29 @@ jobs:
             echo "::endgroup::"
           done
 
-  codeql:
+  codeql-compile:
     runs-on: ubuntu-latest
-    # CodeQL CLI install is heavy; only run on demand or weekly.
-    if: contains(github.event.pull_request.labels.*.name, 'codeql') || github.event_name == 'schedule'
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - name: Cache CodeQL CLI
+        id: cache-cli
+        uses: actions/cache@v4
         with:
-          languages: java
-      - name: Compile CodeQL queries
+          path: ./codeql-cli
+          key: codeql-cli-2.25.3-linux64
+      - name: Install CodeQL CLI
+        if: steps.cache-cli.outputs.cache-hit != 'true'
         run: |
-          set -e
-          for q in codeql/*.ql; do
-            echo "::group::codeql query compile $q"
-            codeql query compile --search-path . "$q"
-            echo "::endgroup::"
-          done
+          curl -sSL -o codeql.zip \
+            https://github.com/github/codeql-cli-binaries/releases/download/v2.25.3/codeql-linux64.zip
+          unzip -q codeql.zip -d codeql-cli-extracted
+          mv codeql-cli-extracted/codeql ./codeql-cli
+      - name: Cache CodeQL packs
+        uses: actions/cache@v4
+        with:
+          path: ~/.codeql/packages
+          key: codeql-packs-${{ hashFiles('codeql/qlpack.yml') }}
+      - name: Install pack dependencies
+        run: ./codeql-cli/codeql pack install codeql/
+      - name: Compile every CodeQL query
+        run: ./codeql-cli/codeql query compile codeql/*.ql

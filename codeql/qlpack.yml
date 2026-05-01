@@ -8,4 +8,4 @@ groups:
   - spring
 default-suite-file: codeql-suites/spring-security.qls
 dependencies:
-  codeql/java-all: "*"
+  codeql/java-all: ^9.0.4

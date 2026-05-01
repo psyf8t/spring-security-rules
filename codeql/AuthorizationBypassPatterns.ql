@@ -30,7 +30,7 @@ predicate regexMatcherWithoutDotAll(Expr e, string pattern) {
     pattern = sl.getValue()
   )
   or
-  exists(MethodAccess ma, StringLiteral sl |
+  exists(MethodCall ma, StringLiteral sl |
     ma = e and
     ma.getMethod()
         .getDeclaringType()

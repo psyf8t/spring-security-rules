@@ -27,7 +27,7 @@ module SpelInjectionConfig implements DataFlow::ConfigSig {
   predicate isSink(DataFlow::Node sink) { sink instanceof SpelParseSink }
 
   predicate isAdditionalFlowStep(DataFlow::Node a, DataFlow::Node b) {
-    exists(MethodAccess ma | ma.getMethod().hasName(["concat", "toString", "format"]) |
+    exists(MethodCall ma | ma.getMethod().hasName(["concat", "toString", "format"]) |
       a.asExpr() = ma.getAnArgument() and b.asExpr() = ma
     )
   }

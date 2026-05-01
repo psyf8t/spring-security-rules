@@ -17,25 +17,25 @@ import java
 
 predicate cookieMissingFlags(Variable v, string what) {
   v.getType().(RefType).hasQualifiedName(["javax.servlet.http", "jakarta.servlet.http"], "Cookie") and
-  not exists(MethodAccess m |
+  not exists(MethodCall m |
     m.getQualifier() = v.getAnAccess() and m.getMethod().hasName("setSecure") and
     m.getArgument(0).(BooleanLiteral).getBooleanValue() = true
   ) and
-  not exists(MethodAccess m |
+  not exists(MethodCall m |
     m.getQualifier() = v.getAnAccess() and m.getMethod().hasName("setHttpOnly") and
     m.getArgument(0).(BooleanLiteral).getBooleanValue() = true
   ) and
   what = "Cookie missing setSecure(true) and/or setHttpOnly(true)"
 }
 
-predicate responseCookieMissingFlags(MethodAccess from_, string what) {
+predicate responseCookieMissingFlags(MethodCall from_, string what) {
   from_.getMethod().getDeclaringType().hasQualifiedName("org.springframework.http", "ResponseCookie") and
   from_.getMethod().hasName("from") and
-  not exists(MethodAccess sec |
+  not exists(MethodCall sec |
     sec.getQualifier+() = from_ and sec.getMethod().hasName("secure") and
     sec.getArgument(0).(BooleanLiteral).getBooleanValue() = true
   ) and
-  not exists(MethodAccess ho |
+  not exists(MethodCall ho |
     ho.getQualifier+() = from_ and ho.getMethod().hasName("httpOnly") and
     ho.getArgument(0).(BooleanLiteral).getBooleanValue() = true
   ) and
@@ -46,5 +46,5 @@ from Element e, string what
 where
   exists(Variable v | cookieMissingFlags(v, what) and e = v)
   or
-  exists(MethodAccess m | responseCookieMissingFlags(m, what) and e = m)
+  exists(MethodCall m | responseCookieMissingFlags(m, what) and e = m)
 select e, what + "."

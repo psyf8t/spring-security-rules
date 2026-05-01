@@ -17,7 +17,7 @@
 import java
 import semmle.code.java.dataflow.DataFlow
 
-class UriComponentsBuilderFromString extends MethodAccess {
+class UriComponentsBuilderFromString extends MethodCall {
   UriComponentsBuilderFromString() {
     this.getMethod()
         .getDeclaringType()
@@ -26,7 +26,7 @@ class UriComponentsBuilderFromString extends MethodAccess {
   }
 }
 
-class HostAccessor extends MethodAccess {
+class HostAccessor extends MethodCall {
   HostAccessor() {
     this.getMethod()
         .getDeclaringType()
