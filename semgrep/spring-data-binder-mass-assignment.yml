@@ -10,11 +10,14 @@ rules:
       will bind every request parameter into the object's property tree
       (mass assignment, plus the Spring4Shell class.module.classLoader chain).
       Use a separate DTO or add an @InitBinder with setAllowedFields /
-      setDisallowedFields.
+      setDisallowedFields. This rule produces a finding on every controller
+      with a POJO parameter. Pair with `spring-init-binder-missing-class-disallow`
+      to identify which findings have no global mitigation.
     metadata:
       category: security
       cwe: "CWE-915"
       owasp: "A08:2021"
+      confidence: MEDIUM
       references:
         - https://spring.io/security/cve-2022-22965/
         - https://spring.io/security/cve-2022-22968/
