@@ -1,4 +1,36 @@
 rules:
+  # Generic actuator over-exposure — fires anywhere broad expose is set.
+  # No CVE link: actuator exposure is a misconfiguration, not a CVE on its
+  # own. CVE-2022-22947 needs the gateway to also be on the classpath.
+  - id: spring-actuator-broadly-exposed
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include:
+        - "*.yml"
+        - "*.yaml"
+        - "*.properties"
+    message: >-
+      Actuator is exposed over HTTP with a broad include ("*"). Restrict to
+      the endpoints you actually need (typically health, info) and put the
+      management port behind authentication.
+    metadata:
+      category: security
+      cwe: "CWE-732"
+      confidence: MEDIUM
+    pattern-either:
+      - pattern: |
+          management.endpoints.web.exposure.include: "*"
+      - pattern: |
+          management.endpoints.web.exposure.include: '*'
+      - pattern: |
+          management.endpoints.web.exposure.include=*
+
+  # CVE-2022-22947-specific: requires Spring Cloud Gateway in the picture.
+  # Generic-mode YAML rules cannot reliably correlate the actuator config
+  # line with a pom.xml dependency, so the CVE-aware variant fires when the
+  # gateway endpoint itself is enabled OR when a gateway config key sits
+  # in the same config file.
   - id: spring-cloud-gateway-actuator-exposed
     languages: [generic]
     severity: ERROR
@@ -8,20 +40,41 @@ rules:
         - "*.yaml"
         - "*.properties"
     message: >-
-      Spring Cloud Gateway actuator endpoint is exposed. Combined with the
-      ability to add a route with a SpEL filter (AddResponseHeader,
-      RewritePath) this is the CVE-2022-22947 RCE. Lock it down or disable.
+      The Spring Cloud Gateway actuator endpoint is enabled or exposed.
+      Combined with the ability to add a route with a SpEL filter
+      (AddResponseHeader, RewritePath, …) this is the CVE-2022-22947 RCE.
+      Disable the endpoint, or lock it behind auth + a network ACL.
     metadata:
       category: security
       cwe: "CWE-94"
-      references:
-        - https://spring.io/security/cve-2022-22947/
+      confidence: LOW
+      notes: |
+        Generic-mode rules cannot read pom.xml from the YAML/properties file
+        being scanned. This rule fires when:
+          (a) the gateway management endpoint is explicitly enabled, or
+          (b) `spring.cloud.gateway.*` appears in the same config file
+              alongside a broad actuator expose.
+        Cases without spring-cloud-gateway-server on the classpath are still
+        worth a look (someone may add the dep later) but are not the CVE
+        proper. Triage with `mvn dependency:tree | grep gateway`.
     pattern-either:
-      - pattern: |
-          management.endpoints.web.exposure.include: "*"
-      - pattern: |
-          management.endpoints.web.exposure.include=*
       - pattern: |
           management.endpoint.gateway.enabled: true
       - pattern: |
           management.endpoint.gateway.enabled=true
+      - pattern: |
+          management.endpoints.web.exposure.include=*
+          ...
+          spring.cloud.gateway
+      - pattern: |
+          spring.cloud.gateway
+          ...
+          management.endpoints.web.exposure.include=*
+      - pattern: |
+          management.endpoints.web.exposure.include: "*"
+          ...
+          spring.cloud.gateway
+      - pattern: |
+          spring.cloud.gateway
+          ...
+          management.endpoints.web.exposure.include: "*"
