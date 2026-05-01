@@ -50,8 +50,11 @@ rules:
           $RT $M(..., @RequestHeader $T $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., @CookieValue $T $P, ...) { ... }
-      - pattern-not: |
-          $RT $M(..., @ModelAttribute $T $P, ...) { ... }
+      # @ModelAttribute is intentionally NOT excluded: WebDataBinder still
+      # walks property paths on the bound POJO, so the
+      # class.module.classLoader chain (Spring4Shell, CVE-2022-22965) works
+      # through it. The reznok/Spring4Shell-POC controller binds via
+      # @ModelAttribute Greeting greeting and is exploitable.
       - pattern-not: |
           $RT $M(..., HttpServletRequest $P, ...) { ... }
       - pattern-not: |
