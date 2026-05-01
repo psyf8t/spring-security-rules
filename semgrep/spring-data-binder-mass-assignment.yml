@@ -43,14 +43,31 @@ rules:
               @PatchMapping(...) $RT $M(..., $POJO $P, ...) { ... }
           - pattern: |
               @DeleteMapping(...) $RT $M(..., $POJO $P, ...) { ... }
+      # v3 triage exposed a real bug: the original `pattern-not: ... @X $T $P`
+      # block ONLY matched the bare-annotation form (`@RequestParam`). The
+      # arg-bearing form (`@RequestParam("petId")`) — which is by far the
+      # more common shape in real Spring code — slipped past, so any
+      # parameter with `@RequestParam("name") <Type> <var>` produced a
+      # false-positive "POJO-without-@RequestBody" finding. Cover both
+      # forms explicitly for every parameter annotation.
+      - pattern-not: |
+          $RT $M(..., @RequestBody(...) $T $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., @RequestBody $T $P, ...) { ... }
       - pattern-not: |
+          $RT $M(..., @PathVariable(...) $T $P, ...) { ... }
+      - pattern-not: |
           $RT $M(..., @PathVariable $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @RequestParam(...) $T $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., @RequestParam $T $P, ...) { ... }
       - pattern-not: |
+          $RT $M(..., @RequestHeader(...) $T $P, ...) { ... }
+      - pattern-not: |
           $RT $M(..., @RequestHeader $T $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., @CookieValue(...) $T $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., @CookieValue $T $P, ...) { ... }
       # @ModelAttribute is intentionally NOT excluded: WebDataBinder still
@@ -63,7 +80,13 @@ rules:
       - pattern-not: |
           $RT $M(..., HttpServletResponse $P, ...) { ... }
       - pattern-not: |
+          $RT $M(..., HttpSession $P, ...) { ... }
+      - pattern-not: |
           $RT $M(..., Model $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., ModelMap $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., RedirectAttributes $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., BindingResult $P, ...) { ... }
       - pattern-not: |
@@ -76,6 +99,18 @@ rules:
           $RT $M(..., Pageable $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., Sort $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., WebRequest $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., NativeWebRequest $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., ServerHttpRequest $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., ServerHttpResponse $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., UriComponentsBuilder $P, ...) { ... }
+      - pattern-not: |
+          $RT $M(..., SessionStatus $P, ...) { ... }
       - pattern-not: |
           $RT $M(..., String $P, ...) { ... }
       - pattern-not: |
