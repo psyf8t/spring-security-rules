@@ -31,16 +31,21 @@ rules:
               @ModelAttribute $T $X
     pattern-sinks:
       - pattern-either:
-          # RestTemplate
+          # RestTemplate / RestOperations — keep only the method names that
+          # are unique to RestTemplate (no overlap with Map / Statement /
+          # ExecutorService). Bench v2 surfaced 59 findings on OWASP
+          # Benchmark; 10/10 sampled were false positives where
+          # `$RT.put($URL, ...)` matched `Map.put(key, val)`. Dropped:
+          # `put`, `delete`, `execute` — the names alias common JDK
+          # interfaces and Semgrep's open-source type tracking can't
+          # resolve `restTemplate` field references reliably enough to
+          # prefix them with `(RestTemplate $RT)`.
           - pattern: $RT.getForObject($URL, ...)
           - pattern: $RT.getForEntity($URL, ...)
           - pattern: $RT.postForObject($URL, ...)
           - pattern: $RT.postForEntity($URL, ...)
-          - pattern: $RT.put($URL, ...)
-          - pattern: $RT.delete($URL, ...)
           - pattern: $RT.exchange($URL, ...)
-          - pattern: $RT.execute($URL, ...)
-          # WebClient
+          # WebClient — chained call shape, low FP risk
           - pattern: $WC.get().uri($URL, ...).$X(...)
           - pattern: $WC.post().uri($URL, ...).$X(...)
           - pattern: $WC.put().uri($URL, ...).$X(...)
@@ -53,12 +58,12 @@ rules:
           - pattern: HttpRequest.newBuilder($URL, ...)
           - pattern: HttpRequest.newBuilder().uri($URL, ...)
           - pattern: $HC.send(HttpRequest.newBuilder($URL, ...).build(), ...)
-          # OkHttp
+          # OkHttp — type-anchored via fully-qualified ctor
           - pattern: new okhttp3.Request.Builder().url($URL).$X(...)
-          # Apache HC
+          # Apache HC — type-anchored via fully-qualified ctors
           - pattern: new org.apache.http.client.methods.HttpGet($URL)
           - pattern: new org.apache.http.client.methods.HttpPost($URL)
-          # URI/URL constructors
+          # URI/URL constructors — actual gate to the network layer.
           - pattern: URI.create($URL)
           - pattern: new URL($URL)
 
