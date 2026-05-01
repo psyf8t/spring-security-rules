@@ -55,7 +55,7 @@ default invocation). Re-bench will confirm.
 | Semgrep p/security-audit | 0.865 | 0.386 | 0.479 |
 | CodeQL | 0.909 | 0.376 | 0.533 |
 
-Caveat: OWASP BenchmarkJava is plain Servlet code (`HttpServletRequest`)
+Caveat: **Why is Layer A so low?** OWASP BenchmarkJava uses `HttpServletRequest.getParameter` as the taint source on every test case. This pack is Spring-specific — sources are `@RequestParam`, `@PathVariable`, `@RequestHeader`, `ServerHttpRequest`. Out of 11 OWASP categories the pack covers only 3 by CWE (CWE-22, CWE-78, CWE-90); the rest (sqli, xss, crypto, weakrand, hash, securecookie, trustbound, xpathi) are out of scope by design. Per-CWE precision on the overlap is 12 TP / 7 FP = **63%** with the lowest FPR in the column (0.005 vs 0.376–0.386 for the baselines). This score is included as the industry-standard frame of reference, not as a quality signal for this pack — for that, see Layer B (Spring vulnerable apps) and Layer D (in-repo CVE fixtures). OWASP BenchmarkJava is plain Servlet code (`HttpServletRequest`)
 with no Spring annotations and 4 CWE categories overlapping this pack
 (CWE-78, CWE-22, CWE-90, CWE-918). The pack is Spring-tuned — it
 **cannot** fire on test cases that don't use Spring annotations. Layer A
