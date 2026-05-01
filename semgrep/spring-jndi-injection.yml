@@ -52,4 +52,4 @@ rules:
           - pattern: $LT.search($BASE, $FILTER, ...)
           - pattern: $LT.search($BASE, $FILTER, $SCOPE, ...)
           - pattern: $LT.searchForObject($BASE, $FILTER, ...)
-          - pattern: $LT.find(LdapQuery.query()...filter($FILTER), ...)
+          - pattern: $LT.find(LdapQueryBuilder.query().filter($FILTER), ...)

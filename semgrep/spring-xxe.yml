@@ -22,17 +22,21 @@ rules:
       category: security
       cwe: "CWE-611"
     patterns:
-      - pattern-either:
-          - pattern: |
-              $F = DocumentBuilderFactory.newInstance();
-              ...
-              $F.newDocumentBuilder()
-      - pattern-not: |
-          $F = DocumentBuilderFactory.newInstance();
-          ...
-          $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-          ...
-          $F.newDocumentBuilder()
+      - pattern: $F.newDocumentBuilder()
+      - pattern-inside: |
+          {
+            ...
+            DocumentBuilderFactory $F = DocumentBuilderFactory.newInstance();
+            ...
+          }
+      - pattern-not-inside: |
+          {
+            ...
+            DocumentBuilderFactory $F = DocumentBuilderFactory.newInstance();
+            ...
+            $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            ...
+          }
 
   - id: spring-xxe-saxparserfactory-default
     languages: [java]
@@ -42,17 +46,21 @@ rules:
       category: security
       cwe: "CWE-611"
     patterns:
-      - pattern-either:
-          - pattern: |
-              $F = SAXParserFactory.newInstance();
-              ...
-              $F.newSAXParser()
-      - pattern-not: |
-          $F = SAXParserFactory.newInstance();
-          ...
-          $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-          ...
-          $F.newSAXParser()
+      - pattern: $F.newSAXParser()
+      - pattern-inside: |
+          {
+            ...
+            SAXParserFactory $F = SAXParserFactory.newInstance();
+            ...
+          }
+      - pattern-not-inside: |
+          {
+            ...
+            SAXParserFactory $F = SAXParserFactory.newInstance();
+            ...
+            $F.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            ...
+          }
 
   - id: spring-xxe-xmlinputfactory-default
     languages: [java]

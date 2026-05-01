@@ -25,13 +25,13 @@ rules:
     metadata:
       category: security
       cwe: "CWE-1004"
-    pattern-either:
-      - pattern: |
-          ResponseCookie.from($N, $V).$Y(...).build()
-      - pattern: |
-          ResponseCookie.from($N, $V).build()
-    pattern-not-either:
-      - pattern: |
-          ResponseCookie.from($N, $V).secure(true).httpOnly(true).$Y(...).build()
-      - pattern: |
-          ResponseCookie.from($N, $V).httpOnly(true).secure(true).$Y(...).build()
+    patterns:
+      - pattern-either:
+          - pattern: ResponseCookie.from($N, $V).build()
+          - pattern: ResponseCookie.from($N, $V).$M1(...).build()
+          - pattern: ResponseCookie.from($N, $V).$M1(...).$M2(...).build()
+          - pattern: ResponseCookie.from($N, $V).$M1(...).$M2(...).$M3(...).build()
+          - pattern: ResponseCookie.from($N, $V).$M1(...).$M2(...).$M3(...).$M4(...).build()
+          - pattern: ResponseCookie.from($N, $V).$M1(...).$M2(...).$M3(...).$M4(...).$M5(...).build()
+      - pattern-not-regex: 'secure\(\s*true\s*\)[^;]*httpOnly\(\s*true\s*\)'
+      - pattern-not-regex: 'httpOnly\(\s*true\s*\)[^;]*secure\(\s*true\s*\)'

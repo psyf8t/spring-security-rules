@@ -14,17 +14,41 @@ rules:
         - https://nvd.nist.gov/vuln/detail/CVE-2016-1000027
     pattern-either:
       - pattern: |
-          @Bean ... HttpInvokerServiceExporter $M(...) { ... }
+          @Bean
+          HttpInvokerServiceExporter $M(...) { ... }
       - pattern: |
-          @Bean ... SimpleHttpInvokerServiceExporter $M(...) { ... }
+          @Bean
+          public HttpInvokerServiceExporter $M(...) { ... }
       - pattern: |
-          @Bean ... HessianServiceExporter $M(...) { ... }
+          @Bean
+          SimpleHttpInvokerServiceExporter $M(...) { ... }
       - pattern: |
-          @Bean ... BurlapServiceExporter $M(...) { ... }
+          @Bean
+          public SimpleHttpInvokerServiceExporter $M(...) { ... }
       - pattern: |
-          @Bean ... RmiServiceExporter $M(...) { ... }
+          @Bean
+          HessianServiceExporter $M(...) { ... }
       - pattern: |
-          @Bean ... JmsInvokerServiceExporter $M(...) { ... }
+          @Bean
+          public HessianServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          BurlapServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          public BurlapServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          RmiServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          public RmiServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          JmsInvokerServiceExporter $M(...) { ... }
+      - pattern: |
+          @Bean
+          public JmsInvokerServiceExporter $M(...) { ... }
       - pattern: new HttpInvokerServiceExporter()
       - pattern: new SimpleHttpInvokerServiceExporter()
       - pattern: new HessianServiceExporter()

@@ -16,7 +16,10 @@ rules:
       - pattern: new org.springframework.cloud.function.context.config.RoutingFunction(...)
       - pattern: |
           @Bean
-          ... RoutingFunction $M(...) { ... }
+          RoutingFunction $M(...) { ... }
+      - pattern: |
+          @Bean
+          public RoutingFunction $M(...) { ... }
 
   - id: spring-cloud-function-routing-header-direct-eval
     languages: [java]

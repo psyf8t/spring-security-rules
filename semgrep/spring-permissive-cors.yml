@@ -14,7 +14,12 @@ rules:
       - pattern: '@CrossOrigin(origins = "*", ...)'
       - pattern: '@CrossOrigin(origins = {"*"}, ...)'
       - pattern: '@CrossOrigin("*")'
-      - pattern: '@CrossOrigin'
+      - pattern: |
+          @CrossOrigin
+          $RT $M(...) { ... }
+      - pattern: |
+          @CrossOrigin
+          class $C { ... }
 
   - id: spring-cors-config-wildcard-with-credentials
     languages: [java]

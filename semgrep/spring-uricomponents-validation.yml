@@ -17,17 +17,26 @@ rules:
         - https://spring.io/security/cve-2024-22262/
     patterns:
       - pattern-either:
-          - pattern: |
-              $URI = UriComponentsBuilder.fromUriString($U).build();
-              ...
-              $URI.getHost()
-          - pattern: |
-              $H = UriComponentsBuilder.fromUriString($U).build().getHost();
-              ...
-          - pattern: |
-              $URI = UriComponentsBuilder.fromHttpUrl($U).build();
-              ...
-              $URI.getHost()
+          - pattern: UriComponentsBuilder.fromUriString(...).build().getHost()
+          - pattern: UriComponentsBuilder.fromUriString(...).build().getAuthority()
+          - pattern: UriComponentsBuilder.fromHttpUrl(...).build().getHost()
+          - pattern: UriComponentsBuilder.fromHttpUrl(...).build().getAuthority()
+          - patterns:
+              - pattern-inside: |
+                  {
+                    ...
+                    UriComponents $URI = UriComponentsBuilder.fromUriString(...).build();
+                    ...
+                  }
+              - pattern: $URI.getHost()
+          - patterns:
+              - pattern-inside: |
+                  {
+                    ...
+                    UriComponents $URI = UriComponentsBuilder.fromHttpUrl(...).build();
+                    ...
+                  }
+              - pattern: $URI.getHost()
 
   - id: spring-uricomponents-from-tainted
     languages: [java]
