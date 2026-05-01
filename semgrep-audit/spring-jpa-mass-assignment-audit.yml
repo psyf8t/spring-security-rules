@@ -1,0 +1,86 @@
+rules:
+  # Loose signal: @RequestBody binds a capitalised type. Cannot prove it's an
+  # @Entity (that would need cross-file resolution Semgrep doesn't do), but
+  # @Entity is one of the cases worth flagging. Bench v2 measured 0 TP / 7 FP
+  # on the sampled findings (precision 0%). Default-pack-unfit; this audit
+  # pack is the place to keep it.
+  - id: spring-jpa-entity-as-controller-parameter
+    languages: [java]
+    severity: INFO
+    message: >-
+      Audit-only rule. Expected to produce noise on real codebases. Run only
+      when reviewing a Spring service for mass-assignment risk. Controller
+      @RequestBody binds a POJO. If the POJO is a JPA @Entity or contains
+      sensitive fields (role, isAdmin, password, …), this is mass assignment.
+      Map a DTO.
+    metadata:
+      category: security
+      cwe: "CWE-915"
+      confidence: LOW
+      audit: true
+      notes: |
+        Loose match — fires on any capitalised @RequestBody type. Cross-file
+        @Entity verification is not possible at the rule level; pair with
+        spring-jpa-entity-as-controller-parameter-precise (same-file only)
+        and human triage. Moved out of the default pack in round 2 after
+        the v2 bench measured 0 TP / 7 FP across sampled findings.
+    patterns:
+      - pattern-either:
+          - pattern-inside: |
+              @Controller
+              class $C { ... }
+          - pattern-inside: |
+              @RestController
+              class $C { ... }
+      - pattern-either:
+          - pattern: |
+              @RequestMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PostMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PutMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+          - pattern: |
+              @PatchMapping(...) $RT $M(..., @RequestBody $ENTITY $P, ...) { ... }
+      - metavariable-pattern:
+          metavariable: $ENTITY
+          patterns:
+            - pattern-regex: "^[A-Z][A-Za-z0-9_]*$"
+
+  - id: spring-jpa-entity-as-controller-parameter-precise
+    languages: [java]
+    severity: ERROR
+    message: >-
+      Audit-only rule. Expected to produce noise on real codebases. Run only
+      when reviewing a Spring service for mass-assignment risk. @RequestBody
+      binds an @Entity declared in the same file. Map a DTO/Form
+      (MapStruct, ModelMapper, plain copy — anything with a whitelist).
+    metadata:
+      category: security
+      cwe: "CWE-915"
+      confidence: HIGH
+      audit: true
+      notes: |
+        Known limitation: in stable open-source Semgrep, metavariable-pattern
+        operates on the source text of the metavariable's binding. For a
+        @RequestBody parameter the binding $E is just the type name (e.g.
+        "Pet") — the @Entity declaration of that class is not in the
+        metavariable's source range, so this generic-mode subpattern always
+        misses. Real projects (spring-petclinic-ms etc.) put entities in a
+        separate package, which is the more common reason this rule reports
+        zero findings on real corpora.
+
+        Kept as a marker for a check that needs cross-file symbol resolution
+        (Semgrep Pro inter-file mode, or external indexing). Until that is
+        wired up, the broader-reach companion
+        spring-jpa-entity-as-controller-parameter (INFO, LOW confidence) is
+        the practical signal.
+    patterns:
+      - pattern: |
+          @PostMapping(...) $RT $M(..., @RequestBody $E $P, ...) { ... }
+      - metavariable-pattern:
+          metavariable: $E
+          language: generic
+          pattern: |
+            @Entity
+            ...
+            class $X

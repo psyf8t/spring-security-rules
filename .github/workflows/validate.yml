@@ -29,10 +29,13 @@ jobs:
           pip install --no-cache-dir 'setuptools<81'
           pip install --no-cache-dir 'semgrep==1.134.0'
 
-      - name: Validate rules
+      - name: Validate default pack
         run: semgrep --validate --config semgrep/ --strict
 
-      - name: Run per-rule paired tests
+      - name: Validate audit pack
+        run: semgrep --validate --config semgrep-audit/ --strict
+
+      - name: Run per-rule paired tests (default pack)
         run: |
           set -e
           fail=0
@@ -43,6 +46,25 @@ jobs:
             stem=${base%.*}
             stem=${stem%.gateway}
             cfg="semgrep/${stem}.yml"
+            if [ ! -f "$cfg" ]; then
+              echo "no paired YAML for $f (looked for $cfg) — skipping"
+              continue
+            fi
+            echo "::group::semgrep test $cfg <- $f"
+            semgrep test --config "$cfg" "$f" || fail=1
+            echo "::endgroup::"
+          done
+          exit $fail
+
+      - name: Run per-rule paired tests (audit pack)
+        run: |
+          set -e
+          fail=0
+          for f in tests/rules-audit/*.java tests/rules-audit/*.properties; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f")
+            stem=${base%.*}
+            cfg="semgrep-audit/${stem}.yml"
             if [ ! -f "$cfg" ]; then
               echo "no paired YAML for $f (looked for $cfg) — skipping"
               continue
