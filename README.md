@@ -7,162 +7,8 @@ they fire on the next variant too.
 
 - `semgrep/` — Semgrep YAML rules (java; a couple of generic configs).
 - `codeql/`  — CodeQL queries plus a small qll lib (qlpack: java).
-
----
-
-## Vulnerability families
-
-Each entry: representative CVEs, what the bad code looks like, what the rule
-matches, where it tends to false-positive.
-
-### SpEL injection
-
-Anchors: CVE-2017-8046 (Data REST PATCH), CVE-2018-1273 (Data Commons property
-paths), CVE-2018-1270 (STOMP selectors), CVE-2022-22963 (Cloud Function header
-routing), CVE-2022-22950 / CVE-2023-20861 / CVE-2023-20863 (SpEL DoS).
-
-Anything that lands an attacker string in `SpelExpressionParser.parseExpression`
-or `Expression.getValue/setValue` is RCE via `T(java.lang.Runtime).getRuntime().exec(...)`.
-The Cloud Function CVE is the textbook case — a header
-(`spring.cloud.function.routing-expression`) parsed as SpEL. The DoS CVEs are
-the same parser, no length cap, default `SpelParserConfiguration`.
-
-```java
-String expr = request.getParameter("q");
-new SpelExpressionParser().parseExpression(expr).getValue();
-
-// templated
-parser.parseExpression(userInput, new TemplateParserContext()).getValue(ctx);
-
-// or just the wrong context — gives reflection / T(...) / .class
-new StandardEvaluationContext(target);
-```
-
-Rules look for: tainted string into `parseExpression`/`parseRaw`, use of
-`StandardEvaluationContext` (warn), tainted root in `getValue`/`setValue`,
-string concat into `@Value`.
-
-### Mass assignment + Spring4Shell
-
-Anchors: CVE-2022-22965 (RCE via ClassLoader on Tomcat), CVE-2022-22968,
-CVE-2024-38820 (case-insensitive `disallowedFields` bypass), CVE-2010-1622.
-
-Three mistakes feed this:
-
-1. Controller takes a POJO with no `@RequestBody` → `WebDataBinder` walks
-   `a.b.c=...` paths. Without `setDisallowedFields("class.*", "Class.*",
-   "*.class.*", "*.Class.*")` an attacker reaches
-   `getClass().getModule().getClassLoader()`.
-2. No global `@ControllerAdvice @InitBinder`.
-3. Domain entities (JPA, security beans) used directly as method parameters —
-   attacker sets `role=ADMIN` for free.
-
-```java
-@PostMapping("/users")
-String create(User user) { ... }   // no @RequestBody — binds from query/form
-
-@Controller
-class C {
-    @InitBinder
-    void init(WebDataBinder b) { /* no setDisallowedFields */ }
-}
-```
-
-### SSRF
-
-Anchors: CVE-2024-22243 / 22259 / 22262 (`UriComponentsBuilder` parses userinfo
-differently from most libs → host check passes, request goes elsewhere); plus
-the generic SSRF in any Spring app.
-
-```java
-String url = request.getParameter("u");
-restTemplate.getForObject(url, String.class);
-
-URI uri = UriComponentsBuilder.fromUriString(url).build().toUri();
-if (!"trusted.example".equals(uri.getHost())) reject();
-restTemplate.getForObject(uri, String.class);          // CVE-2024-22243
-
-webClient.get().uri(URI.create(userInput)).retrieve()...
-```
-
-Rules: tainted URL into `RestTemplate`/`WebClient`/`RestClient`/JDK
-`HttpClient`/OkHttp/Apache HC; specifically the `UriComponentsBuilder` +
-`getHost()` shape.
-
-### Open redirect
-
-`return "redirect:" + userInput`, `response.sendRedirect(userInput)`,
-`new RedirectView(...)`, `Location` header. No allowlist anywhere.
-
-### Path traversal
-
-Anchors: CVE-2024-38816 (path traversal via `RouterFunctions.resources` with
-user-derived base), CVE-2024-38819, CVE-2016-9878 (`ResourceServlet`).
-
-Resolving a resource by a partly-user path with no `Path.normalize()` +
-`startsWith(baseDir)`. WebMvc.fn / WebFlux.fn make it especially easy by
-returning a `FileSystemResource` built from concat.
-
-```java
-@GetMapping("/file")
-ResponseEntity<Resource> get(@RequestParam String name) {
-    return ResponseEntity.ok(new FileSystemResource(baseDir + "/" + name));
-}
-
-router.resources("/static/**", new FileSystemResource(userBase));   // CVE-2024-38816
-```
-
-### Insecure deserialization
-
-Anchors: CVE-2016-1000027 (`HttpInvokerServiceExporter`), CVE-2011-2894
-(`RmiInvocationHandler`), CVE-2022-22980 (Data MongoDB SpEL),
-CVE-2017-4995 (Spring Security OAuth2).
-
-Any endpoint reading a Java-serialised stream from the network:
-`HttpInvokerServiceExporter`, `SimpleHttpInvokerServiceExporter`,
-`HessianServiceExporter`, `BurlapServiceExporter`, `RmiServiceExporter`,
-`JmsInvokerServiceExporter`. Plus Jackson `enableDefaultTyping` /
-`activateDefaultTyping(LaissezFaireSubTypeValidator…)`, and `ObjectInputStream`
-wrapped around `request.getInputStream()`.
-
-### Authorization bypass
-
-Anchors: CVE-2022-22978 (`.` in regex matcher), CVE-2023-20860 (`**` in
-`mvcRequestMatcher` under Boot ≥ 3), CVE-2024-38821 (`//index.html` bypasses
-WebFlux static deny rule), CVE-2025-41248 / 41249 (security annotations missed
-on parameterised types).
-
-Common shapes:
-
-- `regexMatchers("/admin/.*")` — `.` doesn't match `\n`, so `/admin/x%0a/...`
-  slips through.
-- Mixing `antMatchers` and `mvcMatchers` under Boot 3 / Security 6.
-- URL normalisation (`//`, `;jsessionid=`, `..;`) happening *after* the filter.
-- `@PreAuthorize` on a generic interface method that the impl doesn't repeat.
-- `permitAll()` on a broad static path + custom `addResourceHandlers`.
-
-### Misc
-
-- **JNDI** — `Context.lookup(userInput)`, `JndiTemplate.lookup`, LDAP filter
-  string concat.
-- **XXE** — `Jaxb2Marshaller.setProcessExternalEntities(true)`,
-  `DocumentBuilderFactory`/`SAXParserFactory`/`XMLInputFactory` left at
-  defaults, `XStream` without an allowlist.
-- **SSTI** — returning a user-controlled view name from a controller; passing
-  user data as the *template string* to `templateEngine.process`.
-- **CSRF disabled** — `http.csrf().disable()` outside of header-token REST.
-- **SQL/JPQL injection** — `JdbcTemplate.queryForObject("…" + name)`,
-  `em.createQuery("from User u where u.name='" + n + "'")`.
-- **CORS** — `@CrossOrigin("*")`, `addAllowedOriginPattern("*")` + credentials.
-- **Cookies** — `new Cookie(...)` without `setSecure`/`setHttpOnly`,
-  `ResponseCookie.from(...)` without `secure(true).httpOnly(true)`.
-- **Spring Cloud Function** (CVE-2022-22963) — `RoutingFunction` present;
-  routing-expression header parsed as SpEL.
-- **Spring Cloud Gateway** (CVE-2022-22947) — gateway actuator exposed +
-  writeable.
-- **STOMP / WebSocket** (CVE-2018-1270, CVE-2025-41254) — default
-  `SimpAnnotationMethodMessageHandler` uses `StandardEvaluationContext` for
-  selectors; STOMP CSRF can be turned off.
+- `tests/`   — fixtures (`tests/spring-*.{java,properties}` paired by
+  basename with their YAML; `tests/cves/CVE-*/` synthetic modules).
 
 ---
 
@@ -171,25 +17,125 @@ Common shapes:
 ### Semgrep
 
 ```bash
-semgrep --config spring-security-rules/semgrep path/to/app
+semgrep --config semgrep/ path/to/app
 ```
 
 ### CodeQL
 
 ```bash
 codeql database create db --language=java --command="mvn -B clean package -DskipTests"
-codeql database analyze db spring-security-rules/codeql --format=sarif-latest --output=results.sarif
+codeql database analyze db codeql/ --format=sarif-latest --output=results.sarif
 ```
 
 `codeql/qlpack.yml` depends on `codeql/java-all`.
 
 ---
 
-## Notes
+## Test suite
 
-- Rules deliberately fire on the *pattern*, not the vendor version. Expect
-  more noise on tests and demo code than a CVE-version detector would give you.
-- All rules carry severity + `metadata.cwe` + references.
-- Where it pays off, Semgrep rules use `taint-mode` with explicit sources/sinks.
-- CodeQL queries use `RemoteFlowSource` and `TaintTracking::Global` so they
-  drop straight into Code Scanning.
+The repo's regression baseline lives in `tests/`. Two layers:
+
+1. Per-rule paired fixtures, run via `semgrep test`. Each fixture file is
+   paired with its YAML by basename:
+
+   ```bash
+   for f in tests/spring-*.java tests/spring-*.properties; do
+     base=$(basename "$f")
+     stem=${base%.*}; stem=${stem%.gateway}
+     semgrep test --config "semgrep/${stem}.yml" "$f"
+   done
+   ```
+
+   `// ruleid:` / `// ok:` / `// todoruleid:` markers on the line above
+   the code being checked.
+
+2. Synthetic CVE modules under `tests/cves/CVE-*/`, each with a
+   compile-only `pom.xml`, the vulnerable source, and an `EXPECTED.md`
+   table of rule ids × lines:
+
+   ```bash
+   for d in tests/cves/CVE-*; do semgrep scan --config semgrep/ "$d"; done
+   ```
+
+CI (`.github/workflows/validate.yml`) runs both on every PR.
+
+> Layout note: nested `tests/rules/<rule-id>/` directories are not yet
+> supported by `semgrep test` ("split of tests/ and rules/ is not supported
+> yet"). The flat basename-paired layout above is the one Semgrep
+> documents.
+
+---
+
+## Coverage matrix
+
+For each family: which Semgrep rule(s) cover it, the in-repo regression
+fixture proving recall, and a confidence label (HIGH / MEDIUM / LOW). The
+external benchmark output is in `BENCHMARKS.md`.
+
+| Family | Rule id(s) | Fixture | Confidence |
+|---|---|---|---|
+| SpEL injection | `spring-spel-injection-parse-expression`, `spring-spel-standard-evaluation-context`, `spring-spel-value-annotation-concat`, `spring-spel-expression-getvalue-tainted` | `tests/cves/CVE-2017-8046/`, `tests/cves/CVE-2018-1270/` | HIGH (servlet sources); MEDIUM (STOMP — source family missing) |
+| Mass assignment / Spring4Shell | `spring-mvc-pojo-parameter-without-requestbody`, `spring-init-binder-missing-class-disallow`, `spring-jpa-entity-as-controller-parameter`, `spring-jpa-entity-as-controller-parameter-precise` | `tests/cves/CVE-2022-22965/`, `tests/spring-data-binder-mass-assignment.java` | HIGH (pojo + init-binder); LOW (loose JPA — see Known limitations); MARKER-ONLY (precise JPA — see Known limitations) |
+| SSRF | `spring-ssrf-tainted-http-client`, `spring-rest-template-default-redirect-policy` | (paired tests pending) | MEDIUM |
+| URI host validation | `spring-uricomponents-host-validation-pattern`, `spring-uricomponents-from-tainted` | `tests/spring-uricomponents-validation.java` | HIGH |
+| Open redirect | `spring-open-redirect-prefix-concat`, `spring-open-redirect-sendredirect-tainted` | (paired tests pending) | MEDIUM |
+| Path traversal | `spring-path-traversal-resource-from-tainted`, `spring-routerfunctions-resources-tainted-base`, `spring-resource-handler-broad-pattern` | (paired tests pending) | MEDIUM |
+| Insecure deserialization | `spring-httpinvoker-exporter-bean`, `spring-jackson-default-typing-enabled`, `spring-objectinputstream-from-http`, `spring-xml-decoder` | `tests/spring-unsafe-deserialization.java` | HIGH |
+| Authorization bypass | `spring-security-regex-matcher-without-dotall`, `spring-security-csrf-disabled`, `spring-security-permitall-on-admin-actuator`, `spring-security-mixed-mvc-ant-matchers`, `spring-security-annotation-on-interface`, `spring-webflux-static-resource-not-permitall` | `tests/spring-authorization-bypass.java` | MEDIUM |
+| JNDI | `spring-jndi-lookup-tainted`, `spring-ldap-filter-concat` | `tests/spring-jndi-injection.java` | HIGH |
+| XXE | `spring-xxe-jaxb2marshaller-process-external`, `spring-xxe-documentbuilderfactory-default`, `spring-xxe-saxparserfactory-default`, `spring-xxe-xmlinputfactory-default`, `spring-xstream-default` | `tests/spring-xxe.java` | HIGH |
+| SSTI | `spring-mvc-view-name-from-user-input`, `spring-template-engine-tainted-template-string` | (paired tests pending) | MEDIUM |
+| CSRF | `spring-security-csrf-disable` | (paired tests pending) | HIGH |
+| SQL/JPQL injection | `spring-jdbctemplate-string-concat`, `spring-jpa-createquery-string-concat`, `spring-data-jpa-query-with-spel-pound` | (paired tests pending) | HIGH |
+| CORS | `spring-crossorigin-wildcard`, `spring-cors-config-wildcard-with-credentials` | `tests/spring-permissive-cors.java` | HIGH |
+| Cookies | `spring-cookie-missing-secure-httponly`, `spring-responsecookie-not-secure` | `tests/spring-insecure-cookies.java` | MEDIUM |
+| Spring Cloud Function | `spring-cloud-function-routing-function`, `spring-cloud-function-routing-header-direct-eval` | `tests/cves/CVE-2022-22963/`, `tests/spring-cloud-function-routing.java` | MEDIUM |
+| Spring Cloud Gateway | `spring-cloud-gateway-actuator-exposed`, `spring-actuator-broadly-exposed` | `tests/cves/CVE-2022-22947/`, `tests/spring-cloud-gateway-actuator.{,gateway.}properties` | MEDIUM (gateway: needs same-file gateway config or pom.xml triage) |
+| RCE (Runtime.exec) | `spring-runtime-exec-tainted` | (paired tests pending) | MEDIUM |
+
+CodeQL queries are listed in `codeql/README.md`; they cover the same families
+and are validated by `codeql query compile` on a label-gated CI job.
+
+---
+
+## Known limitations
+
+- **Cross-file `@Entity` detection** — `spring-jpa-entity-as-controller-parameter-precise`
+  cannot reliably fire when the `@Entity` class lives in a different file from
+  the controller (the metavariable-pattern operates on the type-name binding,
+  not on the project's symbol table). Real Spring projects keep entities in a
+  separate package, so the precise rule reports zero findings on
+  spring-petclinic-ms and similar layouts. The loose companion
+  `spring-jpa-entity-as-controller-parameter` (INFO, LOW confidence) is the
+  practical signal.
+- **STOMP / WebSocket SpEL source** — `spring-spel-injection-parse-expression`'s
+  taint sources cover servlet/controller params but not
+  `StompHeaderAccessor.getFirstNativeHeader`. CVE-2018-1270 still trips
+  `spring-spel-standard-evaluation-context`, which is the secondary signal.
+- **CodeQL local validation** — CodeQL CLI is not installed by default
+  in this repo; queries are compile-checked only by the gated CI job.
+- **Generic-mode actuator/gateway correlation** — the
+  `spring-cloud-gateway-actuator-exposed` rule cannot read `pom.xml` from
+  a YAML/properties file. It correlates within a single config file or
+  defers to `mvn dependency:tree | grep gateway` for triage.
+- **Runtime / framework-only behaviors** — anything that depends on
+  classpath scanning, runtime registration, or environment-driven SpEL
+  evaluation (Cloud Config server, etc.) is out of scope for
+  source-only static rules.
+
+---
+
+## Benchmarks
+
+See [BENCHMARKS.md](BENCHMARKS.md) — short summary of the in-repo regression
+baseline (`tests/cves/`) and a pointer to the external corpus run.
+
+---
+
+## Notes on how rules were written
+
+Rules deliberately fire on the *pattern*, not the vendor version. Expect more
+noise on tests and demo code than a CVE-version detector would give you. All
+rules carry severity + `metadata.cwe` + references; many use `taint-mode` with
+explicit sources/sinks. Several rules carry `metadata.confidence` (LOW, MEDIUM,
+HIGH) and `metadata.notes` documenting their constraints.
